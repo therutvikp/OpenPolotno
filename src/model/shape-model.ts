@@ -1,0 +1,224 @@
+import { types, Instance } from 'mobx-state-tree';
+import { observable, action } from 'mobx';
+import { animate } from '../utils/animations';
+import { Node } from './node-model';
+
+export const Animation = types.model('Animation', {
+  delay: types.optional(types.number, 0),
+  duration: types.optional(types.number, 500),
+  enabled: types.optional(types.boolean, true),
+  type: types.enumeration<'enter' | 'exit' | 'loop'>('Type', ['enter', 'exit', 'loop']),
+  name: types.optional(types.string, 'none'),
+  data: types.frozen<Record<string, any>>({}),
+});
+
+export const getDiff = (
+  current: Record<string, number>,
+  next: Record<string, number>,
+): Record<string, number> => {
+  const diff: Record<string, number> = {};
+  for (const key in next) {
+    if (typeof current[key] === 'number' && typeof next[key] === 'number') {
+      const delta = next[key] - current[key];
+      if (delta !== 0) {
+        diff[key] = delta;
+      }
+    }
+  }
+  return diff;
+};
+
+export const ShapeFilter = types.model('ShapeFilter', {
+  intensity: types.optional(types.number, 1),
+});
+
+export const INDEPENDENT_FILTERS = [
+  'temperature',
+  'contrast',
+  'highlights',
+  'shadows',
+  'white',
+  'black',
+  'saturation',
+  'vibrance',
+];
+
+export const Shape = Node.named('Shape')
+  .props({
+    x: types.optional(types.number, 0),
+    y: types.optional(types.number, 0),
+    width: types.optional(types.number, 100),
+    height: types.optional(types.number, 100),
+    rotation: types.optional(types.number, 0),
+    opacity: types.optional(types.number, 1),
+    animations: types.array(Animation),
+    blurEnabled: types.optional(types.boolean, false),
+    blurRadius: types.optional(types.number, 10),
+    brightnessEnabled: types.optional(types.boolean, false),
+    brightness: types.optional(types.number, 0),
+    sepiaEnabled: types.optional(types.boolean, false),
+    grayscaleEnabled: types.optional(types.boolean, false),
+    filters: types.map(ShapeFilter),
+    shadowEnabled: types.optional(types.boolean, false),
+    shadowBlur: types.optional(types.number, 5),
+    shadowOffsetX: types.optional(types.number, 0),
+    shadowOffsetY: types.optional(types.number, 0),
+    shadowColor: types.optional(types.string, 'black'),
+    shadowOpacity: types.optional(types.number, 1),
+    visible: types.optional(types.boolean, true),
+    draggable: types.optional(types.boolean, true),
+    resizable: types.optional(types.boolean, true),
+    selectable: types.optional(types.boolean, true),
+    contentEditable: types.optional(types.boolean, true),
+    styleEditable: types.optional(types.boolean, true),
+    alwaysOnTop: types.optional(types.boolean, false),
+    showInExport: types.optional(types.boolean, true),
+  })
+  .preProcessSnapshot((snap: any) => {
+    const processed: any = {
+      ...snap,
+      x: snap.x || 0,
+      y: snap.y || 0,
+      filters: Array.isArray(snap.filters) ? {} : snap.filters,
+    };
+    if ('width' in snap) processed.width = processed.width || 1;
+    if ('height' in snap) processed.height = processed.height || 1;
+    // Legacy: convert "locked" shorthand to individual flags.
+    // Only restrict movement/styling — users must still be able to resize and edit text content.
+    if (snap.locked) {
+      processed.draggable = false;
+      processed.styleEditable = false;
+      processed.removable = false;
+    }
+    return processed;
+  })
+  .views((self) => {
+    // Observable proxy object for animated values — avoids recreating on each access
+    const animatedValues = observable({
+      x: self.x,
+      y: self.y,
+      width: self.width,
+      height: self.height,
+      rotation: self.rotation,
+      opacity: self.opacity,
+      color: (self as any).color,
+      fontSize: (self as any).fontSize,
+    });
+
+    const setValues = action((vals: Record<string, any>) => {
+      Object.assign(animatedValues, vals);
+    });
+
+    const applyDelta = action((delta: Record<string, number>) => {
+      for (const key in delta) {
+        if (typeof (animatedValues as any)[key] === 'number') {
+          (animatedValues as any)[key] = (animatedValues as any)[key] + delta[key];
+        }
+      }
+    });
+
+    return {
+      /** Returns animated property values at current store time */
+      get a(): typeof animatedValues {
+        const currentTime = (self as any).store.currentTime;
+
+        setValues({
+          x: self.x,
+          y: self.y,
+          width: self.width,
+          height: self.height,
+          rotation: self.rotation,
+          opacity: self.opacity,
+          color: (self as any).color,
+          fontSize: (self as any).fontSize,
+          cropX: (self as any).cropX,
+          cropY: (self as any).cropY,
+          cropWidth: (self as any).cropWidth,
+          cropHeight: (self as any).cropHeight,
+        });
+
+        if (currentTime === 0) return animatedValues;
+
+        const elapsed = currentTime - (self as any).page.startTime;
+        const pageDuration = (self as any).page.duration;
+
+        if (elapsed > pageDuration || elapsed < 0) return animatedValues;
+
+        const animatedIds = (self as any).store.animatedElementsIds;
+        if (animatedIds.length && !animatedIds.includes(self.id)) return animatedValues;
+
+        // Enter animation
+        const enterAnim = self.animations.find((a) => a.type === 'enter');
+        const beforeEnter = enterAnim?.enabled && elapsed < enterAnim.delay;
+        if (beforeEnter) setValues({ opacity: 0 });
+
+        const duringEnter =
+          enterAnim?.enabled &&
+          elapsed >= enterAnim.delay &&
+          elapsed <= enterAnim.delay + enterAnim.duration;
+        if (duringEnter) {
+          const dTime = elapsed - enterAnim!.delay;
+          const result = animate({ element: self as any, animation: enterAnim!, dTime });
+          applyDelta(getDiff(self as any, result));
+        }
+
+        // Exit animation
+        const exitAnim = self.animations.find((a) => a.type === 'exit');
+        if (
+          !beforeEnter &&
+          !duringEnter &&
+          exitAnim?.enabled &&
+          elapsed >= pageDuration - exitAnim.duration - exitAnim.delay &&
+          elapsed <= pageDuration - exitAnim.delay
+        ) {
+          const dTime = elapsed - (pageDuration - exitAnim.duration - exitAnim.delay);
+          const result = animate({ element: self as any, animation: exitAnim!, dTime });
+          applyDelta(getDiff(self as any, result));
+        }
+
+        if (exitAnim?.enabled && elapsed >= pageDuration - exitAnim.delay) {
+          setValues({ opacity: 0 });
+        }
+
+        // Loop animation
+        const loopAnim = self.animations.find((a) => a.type === 'loop');
+        if (loopAnim?.enabled) {
+          const result = animate({ element: self as any, animation: loopAnim!, dTime: elapsed });
+          applyDelta(getDiff(self as any, result));
+        }
+
+        return animatedValues;
+      },
+
+      animated(prop: string): any {
+        return (self as any).a[prop];
+      },
+    };
+  })
+  .actions((self) => ({
+    setAnimation(type: 'enter' | 'exit' | 'loop', data: Partial<Instance<typeof Animation>>) {
+      const existing = self.animations.find((a) => a.type === type);
+      if (existing) {
+        Object.assign(existing, data);
+      } else {
+        self.animations.push({ type, ...data } as any);
+      }
+    },
+
+    setFilter(name: string, intensity: number | null) {
+      if (!INDEPENDENT_FILTERS.includes(name)) {
+        self.filters.forEach((_val: any, key: string) => {
+          if (!INDEPENDENT_FILTERS.includes(key)) {
+            self.filters.delete(key);
+          }
+        });
+      }
+      if (intensity == null) {
+        self.filters.delete(name);
+      } else {
+        self.filters.set(name, { intensity });
+      }
+    },
+  }));
+
+export type ShapeType = Instance<typeof Shape>;
