@@ -1,8 +1,8 @@
 {
-  "name": "raeditor",
+  "name": "openpolotno",
   "version": "2.29.5",
-  "description": "Design Editor Framework",
-  "author": "Anton Lavrenov",
+  "description": "Open-source alternative to Polotno with full template and API support.",
+  "author": "Rutvik Panchal",
   "keywords": [
     "raeditor",
     "canvas",
