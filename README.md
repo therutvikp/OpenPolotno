@@ -40,7 +40,7 @@ import { SidePanel } from 'openpolotno/side-panel';
 import { Toolbar } from 'openpolotno/toolbar';
 import { Workspace } from 'openpolotno/canvas';
 
-const store = createStore({ key: 'your-api-key' });
+const store = createStore();
 
 export default function App() {
   return (
