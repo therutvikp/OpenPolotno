@@ -1,14 +1,37 @@
 {
   "name": "openpolotno",
-  "version": "2.29.5",
+  "version": "1.0.0",
   "description": "Open-source alternative to Polotno with full template and API support.",
   "author": "Rutvik Panchal",
+  "license": "MIT",
   "keywords": [
-    "raeditor",
-    "canvas",
+    "openpolotno",
+    "polotno",
+    "design editor",
+    "canvas editor",
     "photo editor",
-    "design editor"
+    "react design tool",
+    "template editor",
+    "konva",
+    "open source"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/therutvikp/OpenPolotno.git"
+  },
+  "homepage": "https://github.com/therutvikp/OpenPolotno#readme",
+  "bugs": {
+    "url": "https://github.com/therutvikp/OpenPolotno/issues"
+  },
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "main": "./dist/raeditor-app.js",
   "module": "./dist/raeditor-app.js",
@@ -108,5 +131,4 @@
     "tsup": "^8.0.0",
     "typescript": "^5.8.3"
   },
-  "license": "SEE LICENSE IN LICENSE.md"
 }
