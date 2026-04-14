@@ -6,7 +6,7 @@
 
 Open-source alternative to Polotno with full template and API support.
 
-<video src="https://github.com/therutvikp/OpenPolotno/raw/main/assets/demo.mp4" controls width="100%"></video>
+https://github.com/therutvikp/OpenPolotno/assets/200716703/48e012c4-4d7b-4e8b-b718-2a277f2aae2a
 
 A powerful, extensible React-based design editor framework for building browser-based design tools. Supports multi-page layouts, rich media elements, animations, AI features, and multiple export formats.
 
