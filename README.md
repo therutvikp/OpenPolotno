@@ -1,5 +1,9 @@
 # OpenPolotno
 
+[![npm version](https://img.shields.io/npm/v/openpolotno.svg)](https://www.npmjs.com/package/openpolotno)
+[![npm downloads](https://img.shields.io/npm/dm/openpolotno.svg)](https://www.npmjs.com/package/openpolotno)
+[![license](https://img.shields.io/npm/l/openpolotno.svg)](./LICENSE)
+
 Open-source alternative to Polotno with full template and API support.
 
 A powerful, extensible React-based design editor framework for building browser-based design tools. Supports multi-page layouts, rich media elements, animations, AI features, and multiple export formats.
