@@ -239,7 +239,9 @@ export function useSnap(
       }
     };
 
-    const onAnchorDragBound = (newPos: any, oldPos: any, event: any) => {
+    // Konva calls anchorDragBoundFunc(oldAbs, newNodePos, event).
+    // Return the constrained new position; returning oldPos cancels the resize.
+    const onAnchorDragBound = (oldPos: any, newPos: any, event: any) => {
       const layer = transformer.getLayer();
       layer?.findOne('.line-guides')?.destroyChildren();
 
