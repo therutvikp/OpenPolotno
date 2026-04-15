@@ -338,6 +338,17 @@ export const TextElement = observer(({ element, store }: ShapeProps) => {
     );
   }, []);
 
+  // Sync Konva's auto-calculated text height back to the model when height is 0 (newly added element).
+  // Must use getHeight() — Konva's Text-specific getter that handles auto-size (height=undefined).
+  // The generic height() / attrs.height would return 0 for newly created elements.
+  React.useLayoutEffect(() => {
+    if (!textRef.current || (element as any).height !== 0) return;
+    const actualHeight = textRef.current.getHeight();
+    if (actualHeight > 0) {
+      (element as any).set({ height: actualHeight });
+    }
+  }, [fontLoaded]);
+
   useFadeIn(textRef, (element as any).a.opacity);
 
   const fillProps = useColor(element as any, (element as any).a.fill, 'fill');
@@ -444,7 +455,7 @@ export const TextElement = observer(({ element, store }: ShapeProps) => {
       y: (element as any).a.y,
       rotation: (element as any).a.rotation,
       width: (element as any).a.width,
-      height: (element as any).a.height,
+      height: (element as any).a.height || undefined,
       text: plainText || (element as any).placeholder,
       direction: getDir(plainText),
       ...commonTextProps,

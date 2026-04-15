@@ -161,7 +161,9 @@ export function applyFilter(node: Konva.Node, element: ShapeType): void {
   node.setAttrs(attrs);
 
   if (filters.length) {
-    node.cache({ ...cacheOpts, pixelRatio: (element as any).store._elementsPixelRatio });
+    if (node.width() > 0 && node.height() > 0) {
+      node.cache({ ...cacheOpts, pixelRatio: (element as any).store._elementsPixelRatio });
+    }
   } else {
     node.clearCache();
   }
