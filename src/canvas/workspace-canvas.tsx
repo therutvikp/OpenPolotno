@@ -6,6 +6,7 @@ import Page from './page';
 import { TopRules } from './rules';
 import { AudioElement } from './audio';
 import { handleHotkey } from './hotkeys';
+import { paste } from '../utils/clipboard';
 import { t } from '../utils/l10n';
 import { StoreType } from '../model/store';
 
@@ -254,6 +255,66 @@ export const WorkspaceCanvas = observer(({
     const onKey = (e: KeyboardEvent) => { (onKeyDown || handleHotkey)(e, store as any); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  // Paste: system-clipboard images (Ctrl+V / browser paste)
+  React.useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      // Ignore when typing in an input / editable area
+      const active = document.activeElement as HTMLElement;
+      if (
+        active?.tagName === 'INPUT' ||
+        active?.tagName === 'TEXTAREA' ||
+        active?.contentEditable === 'true'
+      ) return;
+
+      const items = e.clipboardData?.items;
+      if (!items) {
+        paste(store as any);
+        return;
+      }
+
+      // Look for an image among clipboard items
+      const imageItem = Array.from(items).find((item) => item.type.startsWith('image/'));
+
+      if (imageItem) {
+        e.preventDefault();
+        const file = imageItem.getAsFile();
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const src = ev.target?.result as string;
+          if (!src) return;
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = Math.min((store as any).width, (store as any).height) * 0.8;
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+            if (w > maxDim || h > maxDim) {
+              const ratio = Math.min(maxDim / w, maxDim / h);
+              w = Math.round(w * ratio);
+              h = Math.round(h * ratio);
+            }
+            (store as any).activePage?.addElement({
+              type: 'image',
+              src,
+              x: Math.round(((store as any).width - w) / 2),
+              y: Math.round(((store as any).height - h) / 2),
+              width: w,
+              height: h,
+            });
+          };
+          img.src = src;
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // No image — fall back to pasting editor elements
+        paste(store as any);
+      }
+    };
+
+    window.addEventListener('paste', onPaste);
+    return () => window.removeEventListener('paste', onPaste);
   }, []);
 
   // Ctrl+wheel zoom

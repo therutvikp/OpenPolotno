@@ -1,6 +1,6 @@
 'use client';
 
-import { copy, cut, paste } from '../utils/clipboard';
+import { copy, cut } from '../utils/clipboard';
 import { duplicateElements } from '../utils/duplicate';
 import {
   alignBottom,
@@ -65,7 +65,8 @@ export function handleHotkey(e: KeyboardEvent, store: StoreType): void {
 
   if (ctrl && e.code === 'KeyC') { e.preventDefault(); copy(store); }
   if (ctrl && e.code === 'KeyX') { e.preventDefault(); cut(store); }
-  if (ctrl && e.code === 'KeyV') { e.preventDefault(); paste(store); }
+  // Ctrl+V is handled via the 'paste' DOM event in workspace-canvas (supports both
+  // system-clipboard images and editor-element paste).
 
   // Arrow nudge
   if (e.code === 'ArrowDown') { e.preventDefault(); store.selectedShapes.forEach((el: any) => { if (el.draggable) el.set({ y: el.y + 1 }); }); }
