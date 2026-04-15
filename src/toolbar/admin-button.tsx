@@ -30,7 +30,7 @@ export const AdminButton = observer(({ store }: { store: any }) => {
         React.createElement(Switch, { checked: first.alwaysOnTop, label: t('toolbar.alwaysOnTop'), onChange: (e: any) => { setAll({ alwaysOnTop: e.target.checked }); }, alignIndicator: Alignment.RIGHT, style: { marginTop: '20px' } }),
         React.createElement(Switch, { checked: first.showInExport, label: t('toolbar.showInExport'), onChange: (e: any) => { setAll({ showInExport: e.target.checked }); }, alignIndicator: Alignment.RIGHT, style: { marginTop: '20px' } }),
       ),
-      position: Position.BOTTOM,
+      placement: 'bottom',
     },
     React.createElement(Button, { icon: React.createElement(Cog, null), minimal: true, disabled: !hasElements, 'aria-label': 'Admin settings' }),
   );

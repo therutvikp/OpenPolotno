@@ -28,6 +28,7 @@ import { VideosPanel } from './videos-panel';
 import { ImageClipPanel } from './image-clip-panel';
 import { AnimationsPanel } from './animations-panel';
 import { EffectsPanel } from './effects-panel';
+import { HistoryPanel } from './history-panel';
 
 export const TemplatesSection = {
   name: 'templates',
@@ -70,11 +71,33 @@ export const LayersSection = {
   Tab: observer((props: any) => React.createElement(SectionTab, Object.assign({ name: s('sidePanel.layers') }, props), React.createElement(Icon, { icon: React.createElement(Layers, null) }))),
   Panel: ({ store }: any) => React.createElement(LayersPanel, { store }),
 };
+
+const HistoryTabIcon = () =>
+  React.createElement(
+    'svg',
+    { width: 16, height: 16, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round', strokeLinejoin: 'round' },
+    React.createElement('path', { d: 'M2.5 8A5.5 5.5 0 1 0 4 4.4' }),
+    React.createElement('polyline', { points: '2.5 2 2.5 5 5.5 5' }),
+    React.createElement('polyline', { points: '8 5.5 8 8 10 10' }),
+  );
+
+export const HistorySection = {
+  name: 'history',
+  Tab: observer((props: any) =>
+    React.createElement(
+      SectionTab,
+      Object.assign({ name: 'History', iconSize: 16 }, props),
+      React.createElement('span', { className: 'bp5-icon' }, React.createElement(HistoryTabIcon)),
+    )
+  ),
+  Panel: ({ store }: any) => React.createElement(HistoryPanel, { store }),
+};
 export const SizeSection = {
   name: 'size',
   Tab: observer((props: any) => React.createElement(SectionTab, Object.assign({ name: s('sidePanel.resize') }, props), React.createElement(Icon, { icon: React.createElement(Fullscreen, null) }))),
   Panel: ({ store }: any) => React.createElement(SizePanel, { store }),
 };
+
 export const VideosSection = {
   name: 'videos',
   Tab: (props: any) => React.createElement(SectionTab, Object.assign({ name: s('sidePanel.videos') }, props), React.createElement(Video, null)),
@@ -91,6 +114,7 @@ export const DEFAULT_SECTIONS = [
   UploadSection,
   BackgroundSection,
   LayersSection,
+  HistorySection,
   SizeSection,
 ];
 

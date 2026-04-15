@@ -28,6 +28,8 @@ import { flags } from '../utils/flags';
 import { CopyStyleButton } from './copy-style';
 import { RulerToggleButton } from './ruler-toggle-button';
 import { AdvancedSelectButton } from './advanced-select-button';
+import { ShortcutsButton } from './shortcuts-panel';
+import { PresentationButton } from './presentation-button';
 
 const toolbarRegistry: Record<string, any> = {
   text: TextToolbar,
@@ -147,6 +149,8 @@ export const Toolbar = observer(({ store, downloadButtonEnabled, components: com
         Navbar.Group,
         { align: Alignment.RIGHT },
         store.role === 'admin' && React.createElement(Admin, { store }),
+        React.createElement(PresentationButton, { store }),
+        React.createElement(ShortcutsButton, { store }),
         React.createElement(RulerToggleButton, { store }),
         React.createElement(AdvancedSelectButton, { store }),
         React.createElement(Group, { store }),

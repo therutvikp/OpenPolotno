@@ -201,6 +201,17 @@ export const UndoManager = types
         }
       },
 
+      jumpTo(index: number) {
+        if (index < 0 || index >= self.history.length) return;
+        if (pendingTimer) {
+          clearTimeout(pendingTimer as number);
+          pendingTimer = 0;
+        }
+        self.undoIdx = index;
+        skipNextSnapshot = true;
+        applyStateToTarget(self.history[index]);
+      },
+
       replaceState() {
         self.history[self.undoIdx] = captureState(target);
       },

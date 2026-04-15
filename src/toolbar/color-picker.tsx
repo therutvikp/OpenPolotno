@@ -7,7 +7,7 @@ import { observer } from 'mobx-react-lite';
 import { t } from '../utils/l10n';
 import Sketch from './sketch';
 import styled from '../utils/styled';
-import { parseColor, isGradient } from '../utils/gradient';
+import { parseColor, parseRadialColor, isGradient, isLinearGradient, isRadialGradient } from '../utils/gradient';
 import { sameColors } from '../utils/svg';
 
 export const DEFAULT_COLORS = [
@@ -218,8 +218,108 @@ const GradientInput = ({ value, onChange, store, preset }: any) => {
   );
 };
 
+const RadialGradientInput = ({ value, onChange, store, preset }: any) => {
+  const { stops } = parseRadialColor(value);
+  const stopsRef = React.useRef(stops);
+  stopsRef.current = stops;
+  const [activeStop, setActiveStop] = React.useState(0);
+  const barRef = React.useRef<HTMLDivElement>(null);
+  const dragging = React.useRef(false);
+
+  React.useEffect(() => { barRef.current?.focus(); }, []);
+
+  React.useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const rect = barRef.current!.getBoundingClientRect();
+      const offset = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+      const isOOB = (e.clientX - rect.left) / rect.width < -0.5 || (e.clientX - rect.left) / rect.width > 1.5;
+      if (stopsRef.current.length > 2 && isOOB) {
+        setActiveStop(0);
+        dragging.current = false;
+        stopsRef.current.splice(activeStop, 1);
+        onChange(`radial-gradient(circle, ${stopOffsets(stopsRef.current)})`);
+        return;
+      }
+      const updated = [...stopsRef.current];
+      updated[activeStop].offset = offset;
+      onChange(`radial-gradient(circle, ${stopOffsets(updated)})`);
+    };
+    const onUp = () => { dragging.current = false; };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+  }, [activeStop, stopsRef]);
+
+  return React.createElement(
+    'div',
+    null,
+    React.createElement(
+      'div',
+      { style: { width: 'calc(100% - 35px)', height: '60px', position: 'relative' } },
+      React.createElement(
+        'div',
+        {
+          ref: barRef,
+          tabIndex: 0,
+          style: { position: 'absolute', top: 0, left: 0, width: '100%', marginLeft: '15px', height: '100%', zIndex: 0, outline: 'none' },
+          onKeyDownCapture: (e: any) => {
+            if (e.key === 'Backspace') {
+              e.preventDefault(); e.stopPropagation();
+              if (stopsRef.current.length <= 2) return;
+              stopsRef.current.splice(activeStop, 1);
+              onChange(`radial-gradient(circle, ${stopOffsets(stopsRef.current)})`);
+            }
+          },
+          onMouseDown: (e: any) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const offset = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+            const color = stops[0].color;
+            stops.push({ color, offset });
+            stops.sort((a: any, b: any) => a.offset - b.offset);
+            const idx = stops.findIndex((s: any) => s.offset === offset);
+            setActiveStop(idx);
+            dragging.current = true;
+            onChange(`radial-gradient(circle, ${stopOffsets(stops)})`);
+          },
+        },
+      ),
+      stops.map(({ offset, color }: any, i: number) =>
+        React.createElement(
+          'div',
+          {
+            key: i,
+            style: { position: 'absolute', top: '10px', left: `${100 * offset}%`, border: i === activeStop ? '2px solid rgb(0, 161, 255)' : '2px solid rgba(0,0,0,0)', padding: '2px' },
+            onMouseDown: (e: any) => { e.stopPropagation(); setActiveStop(i); dragging.current = true; },
+          },
+          React.createElement(ColorSwatch, { background: color, style: { margin: 0 } }),
+        ),
+      ),
+    ),
+    React.createElement('div', { style: { width: 'calc(100% - 30px)', height: '10px', marginLeft: '15px', background: `radial-gradient(circle, ${stopOffsets(stops)})` } }),
+    React.createElement(
+      'div',
+      { style: { padding: '10px' } },
+      React.createElement(ColorInput, {
+        color: stops[activeStop]?.color,
+        presetColors: preset,
+        onChange: (c: string) => {
+          const updated = [...stops];
+          updated[activeStop].color = c;
+          onChange(`radial-gradient(circle, ${stopOffsets(updated)})`);
+        },
+      }),
+    ),
+  );
+};
+
 const GradientColorPicker = observer(({ value, onChange, preset, store }: any) => {
-  const [tab, setTab] = React.useState<string>(isGradient(value) ? 'gradient' : 'solid');
+  const initialTab = isLinearGradient(value) ? 'linear' : isRadialGradient(value) ? 'radial' : 'solid';
+  const [tab, setTab] = React.useState<string>(initialTab);
+
+  // When on solid tab but current value is a gradient, show the first stop color
+  const solidColor = isGradient(value) ? parseColor(value).stops[0]?.color ?? value : value;
+
   return React.createElement(
     'div',
     { style: { padding: '5px' } },
@@ -229,12 +329,18 @@ const GradientColorPicker = observer(({ value, onChange, preset, store }: any) =
       React.createElement(Tab, {
         id: 'solid',
         title: t('toolbar.colorPicker.solid'),
-        panel: React.createElement(ColorInput, { color: value, onChange, presetColors: preset, style: { padding: '0' } }),
+        panel: React.createElement(ColorInput, { color: solidColor, onChange, presetColors: preset, style: { padding: '0' } }),
       }),
       React.createElement(Tab, {
-        id: 'gradient',
+        id: 'linear',
         title: t('toolbar.colorPicker.linear'),
         panel: React.createElement(GradientInput, { value, onChange, store, preset }),
+        panelClassName: 'ember-panel',
+      }),
+      React.createElement(Tab, {
+        id: 'radial',
+        title: 'Radial',
+        panel: React.createElement(RadialGradientInput, { value, onChange, store, preset }),
         panelClassName: 'ember-panel',
       }),
     ),
