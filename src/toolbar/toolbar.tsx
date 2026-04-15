@@ -27,6 +27,7 @@ import { GroupButton } from './group-button';
 import { flags } from '../utils/flags';
 import { CopyStyleButton } from './copy-style';
 import { RulerToggleButton } from './ruler-toggle-button';
+import { AdvancedSelectButton } from './advanced-select-button';
 
 const toolbarRegistry: Record<string, any> = {
   text: TextToolbar,
@@ -147,6 +148,7 @@ export const Toolbar = observer(({ store, downloadButtonEnabled, components: com
         { align: Alignment.RIGHT },
         store.role === 'admin' && React.createElement(Admin, { store }),
         React.createElement(RulerToggleButton, { store }),
+        React.createElement(AdvancedSelectButton, { store }),
         React.createElement(Group, { store }),
         React.createElement(Position_, { store }),
         allStyleEditable && React.createElement(Opacity, { store }),
