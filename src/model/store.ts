@@ -59,6 +59,10 @@ export const Store = types
     schemaVersion: types.optional(types.number, 2),
     bleedVisible: types.optional(types.boolean, false),
     rulesVisible: types.optional(types.boolean, false),
+    guides: types.optional(
+      types.array(types.frozen<{ id: string; position: number; orientation: 'H' | 'V' }>()),
+      [],
+    ),
     openedSidePanel: types.optional(types.string, ''),
     previousOpenedSidePanel: types.optional(types.string, ''),
     custom: types.frozen<any>(),
@@ -294,6 +298,26 @@ export const Store = types
 
     toggleRulers(value?: boolean) {
       self.rulesVisible = value != null ? value : !self.rulesVisible;
+    },
+
+    addGuide(position: number, orientation: 'H' | 'V') {
+      (self as any).guides.push({ id: nanoid(10), position, orientation });
+    },
+
+    removeGuide(id: string) {
+      const idx = (self as any).guides.findIndex((g: any) => g.id === id);
+      if (idx !== -1) (self as any).guides.splice(idx, 1);
+    },
+
+    updateGuidePosition(id: string, position: number) {
+      const idx = (self as any).guides.findIndex((g: any) => g.id === id);
+      if (idx !== -1) {
+        (self as any).guides[idx] = { ...(self as any).guides[idx], position };
+      }
+    },
+
+    clearGuides() {
+      (self as any).guides.clear();
     },
 
     openSidePanel(name: string) {

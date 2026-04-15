@@ -108,7 +108,7 @@ function matchGuides(guides: any, target: any) {
 }
 
 function drawGuides(guides: any[], layer: Konva.Layer) {
-  const guidesGroup = layer.children?.find((n) => n.name() === 'line-guides') as Konva.Group | undefined;
+  const guidesGroup = layer.findOne('.line-guides') as Konva.Group | undefined;
   guides.forEach((g) => {
     if (g.orientation === 'H') {
       guidesGroup?.add(new Konva.Line({
@@ -133,6 +133,30 @@ function drawGuides(guides: any[], layer: Konva.Layer) {
     }
     layer.batchDraw();
   });
+}
+
+function getRulerGuideCandidates(store: StoreType, transformer: Konva.Transformer) {
+  const storeGuides: any[] = (store as any).guides || [];
+  if (!storeGuides.length) return { vertical: [] as any[], horizontal: [] as any[] };
+
+  const stage = transformer.getStage();
+  const elemArea = stage?.findOne('.elements-area');
+  if (!elemArea) return { vertical: [] as any[], horizontal: [] as any[] };
+
+  const rect = elemArea.getClientRect({ skipShadow: true, skipStroke: true });
+  const scale = (store as any).scale as number;
+  const vertical: any[] = [];
+  const horizontal: any[] = [];
+
+  storeGuides.forEach((guide: any) => {
+    if (guide.orientation === 'V') {
+      vertical.push({ offset: rect.x + guide.position * scale, node: null, snap: 'start' });
+    } else {
+      horizontal.push({ offset: rect.y + guide.position * scale, node: null, snap: 'start' });
+    }
+  });
+
+  return { vertical, horizontal };
 }
 
 export const ensureDragOrder = () => {
@@ -184,10 +208,12 @@ export function useSnap(
 
     const onDragMove = (e: any) => {
       const layer = e.target.getLayer();
-      const guidesGroup = layer?.children?.find((n: any) => n.name() === 'line-guides');
-      guidesGroup?.destroyChildren();
+      layer?.findOne('.line-guides')?.destroyChildren();
 
       const candidates = getGuideLines(transformer, isCandidate);
+      const rulerCandidates = getRulerGuideCandidates(store, transformer);
+      candidates.vertical.push(...rulerCandidates.vertical);
+      candidates.horizontal.push(...rulerCandidates.horizontal);
       const targetPoints = getTargetSnapPoints(transformer);
       const guides = matchGuides(candidates, targetPoints);
       if (!guides.length) return;
@@ -215,8 +241,7 @@ export function useSnap(
 
     const onAnchorDragBound = (newPos: any, oldPos: any, event: any) => {
       const layer = transformer.getLayer();
-      const guidesGroup = layer?.children?.find((n: any) => n.name() === 'line-guides');
-      guidesGroup?.destroyChildren();
+      layer?.findOne('.line-guides')?.destroyChildren();
 
       if (transformer.getActiveAnchor() === 'rotater') return newPos;
 
@@ -230,6 +255,9 @@ export function useSnap(
       const projected = { x: anchorPos.x + direction.x, y: anchorPos.y + direction.y };
 
       const candidates = getGuideLines(transformer, isCandidate);
+      const rulerCandidates = getRulerGuideCandidates(store, transformer);
+      candidates.vertical.push(...rulerCandidates.vertical);
+      candidates.horizontal.push(...rulerCandidates.horizontal);
       const targetPoints = {
         vertical: [{ guide: projected.x, offset: 0, snap: 'start', nodes: transformer.nodes() }],
         horizontal: [{ guide: projected.y, offset: 0, snap: 'start', nodes: transformer.nodes() }],
@@ -255,8 +283,7 @@ export function useSnap(
     const onDragEnd = (e: any) => {
       if (!e.target) return;
       const layer = e.target.getLayer();
-      const guidesGroup = layer?.children?.find((n: any) => n.name() === 'line-guides');
-      guidesGroup?.destroyChildren();
+      layer?.findOne('.line-guides')?.destroyChildren();
       layer?.batchDraw();
     };
 
@@ -292,8 +319,7 @@ export function useAnchorSnap(
     const target = e.target;
     if (!ref.current) return;
     const layer = target.getLayer();
-    const guidesGroup = layer?.children?.find((n: any) => n.name() === 'line-guides');
-    guidesGroup?.destroyChildren();
+    layer?.findOne('.line-guides')?.destroyChildren();
 
     const allNodes = [target, ...skipRefs.map((r) => r.current).filter(Boolean)];
     const candidates: any = { vertical: [], horizontal: [] };
@@ -326,6 +352,7 @@ export function useAnchorSnap(
     if (!guides.length) return;
 
     if (layer) {
+      const guidesGroup = layer.findOne('.line-guides') as Konva.Group | undefined;
       guides.forEach((g) => {
         if (g.orientation === 'H') {
           guidesGroup?.add(new Konva.Line({ points: [-6000, g.lineGuide, 6000, g.lineGuide], stroke: snapStyle.stroke, strokeWidth: snapStyle.strokeWidth, name: 'guid-line', dash: snapStyle.dash }));
@@ -352,8 +379,7 @@ export function useAnchorSnap(
   const onDragEnd = (e: any) => {
     if (!e.target) return;
     const layer = e.target.getLayer();
-    const guidesGroup = layer?.children?.find((n: any) => n.name() === 'line-guides');
-    guidesGroup?.destroyChildren();
+    layer?.findOne('.line-guides')?.destroyChildren();
     layer?.batchDraw();
   };
 

@@ -770,8 +770,6 @@ const Page = observer(({
             onClick: () => window.open('https://raeditor.com'),
             onTap: () => window.open('https://raeditor.com'),
           }),
-          // Snap guide lines container
-          React.createElement(Group, { name: 'line-guides' }),
         ),
         // Workspace (out-of-page) background overlay — stage coords, drawn above page content
         React.createElement(Line, {
@@ -781,6 +779,8 @@ const Page = observer(({
           closed: true,
           fill: backColor,
         }),
+        // Snap guide lines container — at Layer level so coordinates are in stage/screen space
+        React.createElement(Group, { name: 'line-guides' }),
         // Marquee selection rect — stage coords, must be at Layer level (outside scaled page-container)
         React.createElement(SelectionRect, {
           selection,
