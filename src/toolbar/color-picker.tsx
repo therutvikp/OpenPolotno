@@ -37,7 +37,7 @@ export const getUsedColors = (store: any): string[] => {
     if (isGradient(c)) {
       const { stops } = parseColor(c);
       flat.push(...stops.map((s: any) => s.color));
-    } else {
+    } else if (!isPattern(c)) {
       flat.push(c);
     }
   });
@@ -329,36 +329,67 @@ const PatternSwatchCanvas = ({ type, fg, bg, size = 48 }: { type: string; fg: st
   return React.createElement('canvas', { ref, width: size, height: size, style: { display: 'block' } });
 };
 
-const PatternPicker = ({ value, onChange, preset }: any) => {
-  const config = isPattern(value)
-    ? parsePattern(value)
-    : { type: 'dots', fg: '#000000', bg: 'transparent', scale: 1 };
+// Uploaded pattern images are kept for the duration of the browser session so
+// the user doesn't have to re-upload when switching between shapes.
+const sessionUploadedPatterns: string[] = [];
 
-  const [activeType, setActiveType] = React.useState(config.type);
-  const [fg, setFg] = React.useState(config.fg);
-  const [bg, setBg] = React.useState(config.bg);
-  const [scale, setScale] = React.useState(config.scale);
+const PatternPicker = ({ value, onChange, preset }: any) => {
+  const config = isPattern(value) ? parsePattern(value) : null;
+  const isUploaded = config?.type === 'uploaded';
+
+  const [activeType, setActiveType] = React.useState(config?.type ?? 'dots');
+  const [inkFg, setInkFg] = React.useState(isUploaded ? '#000000' : (config?.fg ?? '#000000'));
+  const [inkBg, setInkBg] = React.useState(isUploaded ? 'transparent' : (config?.bg ?? 'transparent'));
+  const [scale, setScale] = React.useState(config?.scale ?? 1);
+  const [uploadedUrl, setUploadedUrl] = React.useState(isUploaded ? (config?.fg ?? '') : '');
+  const [uploadedSwatches, setUploadedSwatches] = React.useState<string[]>(() => {
+    const initial = [...sessionUploadedPatterns];
+    if (isUploaded && config?.fg && !initial.includes(config.fg)) initial.push(config.fg);
+    return initial;
+  });
   const [fgOpen, setFgOpen] = React.useState(false);
   const [bgOpen, setBgOpen] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  const emit = (type: string, nextFg: string, nextBg: string, nextScale: number) => {
-    onChange(buildPatternValue({ type, fg: nextFg, bg: nextBg, scale: nextScale }));
+  const emitBuiltin = (type: string, fg: string, bg: string, s: number) =>
+    onChange(buildPatternValue({ type, fg, bg, scale: s }));
+
+  const emitUploaded = (url: string, s: number) =>
+    onChange(buildPatternValue({ type: 'uploaded', fg: url, bg: 'transparent', scale: s }));
+
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (!dataUrl) return;
+      if (!sessionUploadedPatterns.includes(dataUrl)) sessionUploadedPatterns.push(dataUrl);
+      setUploadedSwatches(prev => prev.includes(dataUrl) ? prev : [...prev, dataUrl]);
+      setActiveType('uploaded');
+      setUploadedUrl(dataUrl);
+      emitUploaded(dataUrl, scale);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
   };
+
+  const isBuiltin = activeType !== 'uploaded';
 
   return React.createElement(
     'div',
-    { style: { padding: '8px' } },
-    // ---- pattern grid ----
+    { style: { padding: '8px', width: 240 } },
+    // ---- built-in pattern grid ----
     React.createElement(
       'div',
-      { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' } },
+      { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '8px' } },
       PATTERNS.map(({ id, label }) =>
         React.createElement(
           'div',
           {
             key: id,
             title: label,
-            onClick: () => { setActiveType(id); emit(id, fg, bg, scale); },
+            onClick: () => { setActiveType(id); emitBuiltin(id, inkFg, inkBg, scale); },
             style: {
               cursor: 'pointer',
               borderRadius: '4px',
@@ -367,79 +398,134 @@ const PatternPicker = ({ value, onChange, preset }: any) => {
               outlineOffset: '1px',
             },
           },
-          React.createElement(PatternSwatchCanvas, { type: id, fg, bg, size: 48 }),
+          React.createElement(PatternSwatchCanvas, { type: id, fg: inkFg, bg: inkBg, size: 48 }),
         ),
       ),
     ),
-    // ---- FG color row ----
+    // ---- custom / uploaded section ----
+    React.createElement('div', { style: { fontSize: 11, color: '#888', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' } }, 'Custom Image'),
     React.createElement(
       'div',
-      { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
-      React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Foreground'),
-      React.createElement(
-        Popover,
-        {
-          isOpen: fgOpen,
-          onInteraction: (s: boolean) => setFgOpen(s),
-          autoFocus: false,
-          hasBackdrop: true,
-          content: React.createElement(
-            'div',
-            { style: { padding: '5px' } },
-            React.createElement(ColorInput, {
-              color: fg,
-              presetColors: preset,
-              onChange: (c: string) => { setFg(c); emit(activeType, c, bg, scale); },
-            }),
-          ),
-        },
-        React.createElement(ColorSwatch, { size: 24, background: fg, style: { cursor: 'pointer', margin: 0 } }),
+      { style: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px', alignItems: 'center' } },
+      uploadedSwatches.map((url, i) =>
+        React.createElement('div', {
+          key: i,
+          title: 'Use this image as pattern',
+          onClick: () => { setActiveType('uploaded'); setUploadedUrl(url); emitUploaded(url, scale); },
+          style: {
+            width: 48, height: 48, flexShrink: 0,
+            backgroundImage: `url(${url})`,
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'center',
+            borderRadius: 4,
+            cursor: 'pointer',
+            outline: activeType === 'uploaded' && uploadedUrl === url ? '2px solid rgb(0, 161, 255)' : '2px solid transparent',
+            outlineOffset: '1px',
+          },
+        }),
       ),
+      // upload button
+      React.createElement(
+        'div',
+        {
+          onClick: () => fileInputRef.current?.click(),
+          title: 'Upload image (JPG, PNG, SVG)',
+          style: {
+            width: 48, height: 48, flexShrink: 0,
+            border: '1.5px dashed #888',
+            borderRadius: 4,
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 2,
+            color: '#888',
+          },
+        },
+        React.createElement('span', { style: { fontSize: 20, lineHeight: 1 } }, '+'),
+        React.createElement('span', { style: { fontSize: 9 } }, 'Upload'),
+      ),
+      React.createElement('input', {
+        ref: fileInputRef,
+        type: 'file',
+        accept: 'image/jpeg,image/png,image/svg+xml,.jpg,.jpeg,.png,.svg',
+        style: { display: 'none' },
+        onChange: handleFile,
+      }),
     ),
-    // ---- BG color row ----
-    React.createElement(
+    // ---- FG/BG — only for built-in patterns ----
+    isBuiltin && React.createElement(
       'div',
-      { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
-      React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Background'),
+      null,
       React.createElement(
-        Popover,
-        {
-          isOpen: bgOpen,
-          onInteraction: (s: boolean) => setBgOpen(s),
-          autoFocus: false,
-          hasBackdrop: true,
-          content: React.createElement(
-            'div',
-            { style: { padding: '5px' } },
-            React.createElement(ColorInput, {
-              color: bg === 'transparent' ? 'rgba(0,0,0,0)' : bg,
-              presetColors: preset,
-              onChange: (c: string) => { setBg(c); emit(activeType, fg, c, scale); },
-            }),
-          ),
-        },
-        React.createElement(ColorSwatch, { size: 24, background: bg, style: { cursor: 'pointer', margin: 0 } }),
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+        React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Foreground'),
+        React.createElement(
+          Popover,
+          {
+            isOpen: fgOpen,
+            onInteraction: (s: boolean) => setFgOpen(s),
+            autoFocus: false,
+            hasBackdrop: true,
+            content: React.createElement('div', { style: { padding: '5px' } },
+              React.createElement(ColorInput, {
+                color: inkFg,
+                presetColors: preset,
+                onChange: (c: string) => { setInkFg(c); emitBuiltin(activeType, c, inkBg, scale); },
+              }),
+            ),
+          },
+          React.createElement(ColorSwatch, { size: 24, background: inkFg, style: { cursor: 'pointer', margin: 0 } }),
+        ),
+      ),
+      React.createElement(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+        React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Background'),
+        React.createElement(
+          Popover,
+          {
+            isOpen: bgOpen,
+            onInteraction: (s: boolean) => setBgOpen(s),
+            autoFocus: false,
+            hasBackdrop: true,
+            content: React.createElement('div', { style: { padding: '5px' } },
+              React.createElement(ColorInput, {
+                color: inkBg === 'transparent' ? 'rgba(0,0,0,0)' : inkBg,
+                presetColors: preset,
+                onChange: (c: string) => { setInkBg(c); emitBuiltin(activeType, inkFg, c, scale); },
+              }),
+            ),
+          },
+          React.createElement(ColorSwatch, { size: 24, background: inkBg, style: { cursor: 'pointer', margin: 0 } }),
+        ),
       ),
     ),
-    // ---- scale row ----
+    // ---- scale ----
     React.createElement(
       'div',
       { style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' } },
       React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Scale'),
-      React.createElement(
-        'div',
-        { style: { flex: 1 } },
+      React.createElement('div', { style: { flex: 1 } },
         React.createElement(Slider, {
-          min: 0.5,
+          min: 0.1,
           max: 4,
-          stepSize: 0.5,
+          stepSize: 0.1,
           value: scale,
           showTrackFill: false,
           labelRenderer: false,
-          onChange: (val: number) => { setScale(val); emit(activeType, fg, bg, val); },
+          onChange: (val: number) => {
+            const s = Math.round(val * 10) / 10;
+            setScale(s);
+            if (activeType === 'uploaded') emitUploaded(uploadedUrl, s);
+            else emitBuiltin(activeType, inkFg, inkBg, s);
+          },
         }),
       ),
-      React.createElement('span', { style: { fontSize: 12, minWidth: 24, textAlign: 'right' } }, `${scale}×`),
+      React.createElement('span', { style: { fontSize: 12, minWidth: 28, textAlign: 'right' } }, `${scale}×`),
     ),
   );
 };
@@ -452,7 +538,7 @@ const GradientColorPicker = observer(({ value, onChange, preset, store }: any) =
   const solidColor = isGradient(value)
     ? parseColor(value).stops[0]?.color ?? value
     : isPattern(value)
-    ? parsePattern(value).fg
+    ? (parsePattern(value).type === 'uploaded' ? '#000000' : parsePattern(value).fg)
     : value;
 
   return React.createElement(

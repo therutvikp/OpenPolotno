@@ -6,12 +6,42 @@ import { isPattern, parsePattern, createPatternCanvas } from '../utils/pattern';
 import Konva from 'konva';
 import { ShapeType } from '../model/shape-model';
 
+// Module-level cache for uploaded pattern images (persists across re-renders)
+const uploadedImageCache = new Map<string, HTMLImageElement>();
+
 export const useColor = (
   element: ShapeType,
   value: any = (element as any).fill,
   propName = 'fill',
-) =>
-  React.useMemo(() => {
+) => {
+  // Async state for uploaded pattern images
+  const [loadedImage, setLoadedImage] = React.useState<HTMLImageElement | null>(() => {
+    if (isPattern(value) && propName === 'fill') {
+      const cfg = parsePattern(value);
+      if (cfg.type === 'uploaded') return uploadedImageCache.get(cfg.fg) ?? null;
+    }
+    return null;
+  });
+
+  React.useEffect(() => {
+    if (!isPattern(value) || propName !== 'fill') { setLoadedImage(null); return; }
+    const cfg = parsePattern(value);
+    if (cfg.type !== 'uploaded') { setLoadedImage(null); return; }
+    const url = cfg.fg;
+    const cached = uploadedImageCache.get(url);
+    if (cached) { setLoadedImage(cached); return; }
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      uploadedImageCache.set(url, img);
+      setLoadedImage(img);
+    };
+    img.src = url;
+    return () => { cancelled = true; };
+  }, [value, propName]);
+
+  return React.useMemo(() => {
     if (isLinearGradient(value)) {
       const { stops, rotation } = parseColor(value);
       const cx = element.a.width / 2;
@@ -74,6 +104,17 @@ export const useColor = (
 
     if (isPattern(value) && propName === 'fill') {
       const config = parsePattern(value);
+      if (config.type === 'uploaded') {
+        if (!loadedImage) return { fill: 'transparent' };
+        return {
+          fillPatternImage: loadedImage,
+          fillPatternRepeat: 'repeat',
+          fillPatternScaleX: config.scale,
+          fillPatternScaleY: config.scale,
+          fillPriority: 'pattern',
+          fill: 'transparent',
+        };
+      }
       const image = createPatternCanvas(config);
       return {
         fillPatternImage: image as unknown as HTMLImageElement,
@@ -86,4 +127,6 @@ export const useColor = (
     }
 
     return { [propName]: value };
-  }, [value, (element as any).width, (element as any).height]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, loadedImage, (element as any).width, (element as any).height]);
+};
