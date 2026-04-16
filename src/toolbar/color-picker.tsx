@@ -512,7 +512,7 @@ const PatternPicker = ({ value, onChange, preset }: any) => {
       React.createElement('div', { style: { flex: 1 } },
         React.createElement(Slider, {
           min: 0.1,
-          max: 4,
+          max: 10,
           stepSize: 0.1,
           value: scale,
           showTrackFill: false,
@@ -525,7 +525,10 @@ const PatternPicker = ({ value, onChange, preset }: any) => {
           },
         }),
       ),
-      React.createElement('span', { style: { fontSize: 12, minWidth: 28, textAlign: 'right' } }, `${scale}×`),
+      // For uploaded patterns scale=1 means 100px tile, so show px; for built-ins show multiplier
+      React.createElement('span', { style: { fontSize: 12, minWidth: 36, textAlign: 'right' } },
+        activeType === 'uploaded' ? `${Math.round(scale * 100)}px` : `${scale}×`,
+      ),
     ),
   );
 };

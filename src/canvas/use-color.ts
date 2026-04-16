@@ -106,11 +106,14 @@ export const useColor = (
       const config = parsePattern(value);
       if (config.type === 'uploaded') {
         if (!loadedImage) return { fill: 'transparent' };
+        // Normalize: scale=1 → 100px tile width so the image tiles visibly
+        // regardless of its natural pixel dimensions.
+        const ref = 100 * config.scale;
         return {
           fillPatternImage: loadedImage,
           fillPatternRepeat: 'repeat',
-          fillPatternScaleX: config.scale,
-          fillPatternScaleY: config.scale,
+          fillPatternScaleX: ref / loadedImage.naturalWidth,
+          fillPatternScaleY: ref / loadedImage.naturalHeight,
           fillPriority: 'pattern',
           fill: 'transparent',
         };
