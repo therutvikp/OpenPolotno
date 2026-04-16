@@ -8,6 +8,7 @@ import { t } from '../utils/l10n';
 import Sketch from './sketch';
 import styled from '../utils/styled';
 import { parseColor, parseRadialColor, isGradient, isLinearGradient, isRadialGradient } from '../utils/gradient';
+import { isPattern, parsePattern, buildPatternValue, createPatternCanvas, PATTERNS } from '../utils/pattern';
 import { sameColors } from '../utils/svg';
 
 export const DEFAULT_COLORS = [
@@ -313,12 +314,146 @@ const RadialGradientInput = ({ value, onChange, store, preset }: any) => {
   );
 };
 
+// Renders a tiled pattern preview on a <canvas> element.
+const PatternSwatchCanvas = ({ type, fg, bg, size = 48 }: { type: string; fg: string; bg: string; size?: number }) => {
+  const ref = React.useRef<HTMLCanvasElement>(null);
+  React.useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const tile = createPatternCanvas({ type, fg, bg, scale: 1 });
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, size, size);
+    const pat = ctx.createPattern(tile, 'repeat');
+    if (pat) { ctx.fillStyle = pat; ctx.fillRect(0, 0, size, size); }
+  }, [type, fg, bg, size]);
+  return React.createElement('canvas', { ref, width: size, height: size, style: { display: 'block' } });
+};
+
+const PatternPicker = ({ value, onChange, preset }: any) => {
+  const config = isPattern(value)
+    ? parsePattern(value)
+    : { type: 'dots', fg: '#000000', bg: 'transparent', scale: 1 };
+
+  const [activeType, setActiveType] = React.useState(config.type);
+  const [fg, setFg] = React.useState(config.fg);
+  const [bg, setBg] = React.useState(config.bg);
+  const [scale, setScale] = React.useState(config.scale);
+  const [fgOpen, setFgOpen] = React.useState(false);
+  const [bgOpen, setBgOpen] = React.useState(false);
+
+  const emit = (type: string, nextFg: string, nextBg: string, nextScale: number) => {
+    onChange(buildPatternValue({ type, fg: nextFg, bg: nextBg, scale: nextScale }));
+  };
+
+  return React.createElement(
+    'div',
+    { style: { padding: '8px' } },
+    // ---- pattern grid ----
+    React.createElement(
+      'div',
+      { style: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px', marginBottom: '10px' } },
+      PATTERNS.map(({ id, label }) =>
+        React.createElement(
+          'div',
+          {
+            key: id,
+            title: label,
+            onClick: () => { setActiveType(id); emit(id, fg, bg, scale); },
+            style: {
+              cursor: 'pointer',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              outline: id === activeType ? '2px solid rgb(0, 161, 255)' : '2px solid transparent',
+              outlineOffset: '1px',
+            },
+          },
+          React.createElement(PatternSwatchCanvas, { type: id, fg, bg, size: 48 }),
+        ),
+      ),
+    ),
+    // ---- FG color row ----
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+      React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Foreground'),
+      React.createElement(
+        Popover,
+        {
+          isOpen: fgOpen,
+          onInteraction: (s: boolean) => setFgOpen(s),
+          autoFocus: false,
+          hasBackdrop: true,
+          content: React.createElement(
+            'div',
+            { style: { padding: '5px' } },
+            React.createElement(ColorInput, {
+              color: fg,
+              presetColors: preset,
+              onChange: (c: string) => { setFg(c); emit(activeType, c, bg, scale); },
+            }),
+          ),
+        },
+        React.createElement(ColorSwatch, { size: 24, background: fg, style: { cursor: 'pointer', margin: 0 } }),
+      ),
+    ),
+    // ---- BG color row ----
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' } },
+      React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Background'),
+      React.createElement(
+        Popover,
+        {
+          isOpen: bgOpen,
+          onInteraction: (s: boolean) => setBgOpen(s),
+          autoFocus: false,
+          hasBackdrop: true,
+          content: React.createElement(
+            'div',
+            { style: { padding: '5px' } },
+            React.createElement(ColorInput, {
+              color: bg === 'transparent' ? 'rgba(0,0,0,0)' : bg,
+              presetColors: preset,
+              onChange: (c: string) => { setBg(c); emit(activeType, fg, c, scale); },
+            }),
+          ),
+        },
+        React.createElement(ColorSwatch, { size: 24, background: bg, style: { cursor: 'pointer', margin: 0 } }),
+      ),
+    ),
+    // ---- scale row ----
+    React.createElement(
+      'div',
+      { style: { display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' } },
+      React.createElement('span', { style: { minWidth: 72, fontSize: 12 } }, 'Scale'),
+      React.createElement(
+        'div',
+        { style: { flex: 1 } },
+        React.createElement(Slider, {
+          min: 0.5,
+          max: 4,
+          stepSize: 0.5,
+          value: scale,
+          showTrackFill: false,
+          labelRenderer: false,
+          onChange: (val: number) => { setScale(val); emit(activeType, fg, bg, val); },
+        }),
+      ),
+      React.createElement('span', { style: { fontSize: 12, minWidth: 24, textAlign: 'right' } }, `${scale}×`),
+    ),
+  );
+};
+
 const GradientColorPicker = observer(({ value, onChange, preset, store }: any) => {
-  const initialTab = isLinearGradient(value) ? 'linear' : isRadialGradient(value) ? 'radial' : 'solid';
+  const initialTab = isLinearGradient(value) ? 'linear' : isRadialGradient(value) ? 'radial' : isPattern(value) ? 'pattern' : 'solid';
   const [tab, setTab] = React.useState<string>(initialTab);
 
-  // When on solid tab but current value is a gradient, show the first stop color
-  const solidColor = isGradient(value) ? parseColor(value).stops[0]?.color ?? value : value;
+  // When on solid tab but current value is a gradient or pattern, show a usable solid color
+  const solidColor = isGradient(value)
+    ? parseColor(value).stops[0]?.color ?? value
+    : isPattern(value)
+    ? parsePattern(value).fg
+    : value;
 
   return React.createElement(
     'div',
@@ -341,6 +476,12 @@ const GradientColorPicker = observer(({ value, onChange, preset, store }: any) =
         id: 'radial',
         title: 'Radial',
         panel: React.createElement(RadialGradientInput, { value, onChange, store, preset }),
+        panelClassName: 'ember-panel',
+      }),
+      React.createElement(Tab, {
+        id: 'pattern',
+        title: 'Pattern',
+        panel: React.createElement(PatternPicker, { value, onChange, preset }),
         panelClassName: 'ember-panel',
       }),
     ),

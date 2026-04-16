@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { isLinearGradient, isRadialGradient, parseColor, parseRadialColor } from '../utils/gradient';
+import { isPattern, parsePattern, createPatternCanvas } from '../utils/pattern';
 import Konva from 'konva';
 import { ShapeType } from '../model/shape-model';
 
@@ -69,6 +70,19 @@ export const useColor = (
 
       // Konva doesn't support radial stroke gradients — use last stop color
       return { stroke: stops[stops.length - 1]?.color };
+    }
+
+    if (isPattern(value) && propName === 'fill') {
+      const config = parsePattern(value);
+      const image = createPatternCanvas(config);
+      return {
+        fillPatternImage: image as unknown as HTMLImageElement,
+        fillPatternRepeat: 'repeat',
+        fillPatternScaleX: config.scale,
+        fillPatternScaleY: config.scale,
+        fillPriority: 'pattern',
+        fill: config.fg,
+      };
     }
 
     return { [propName]: value };
