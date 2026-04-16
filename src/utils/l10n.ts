@@ -62,6 +62,7 @@ const translations = observable({
     namePlaceholder: 'Type element name...', useMagicResize: 'Use magic resize',
     clipImage: 'Mask image', width: 'Width', height: 'Height',
     magicResizeDescription: 'Magic resize will automatically resize and move all elements on the canvas',
+    units: 'px',
     headerText: 'Header', createHeader: 'Create header', subHeaderText: 'Sub Header',
     createSubHeader: 'Create sub header', bodyText: 'Body text', createBody: 'Create body text',
   },

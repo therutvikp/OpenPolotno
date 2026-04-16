@@ -11,7 +11,7 @@ import { Search } from '@blueprintjs/icons';
 import { StoreType } from '../model/store';
 
 const getPexelsVideosAPI = ({ query, page }: any) =>
-  `https://api.raeditor.com/api/pexels/videos/${query ? 'search' : 'popular'}?query=${query}&per_page=20&page=${page}&KEY=${getKey()}`;
+  `https://api.polotno.com/api/pexels/videos/${query ? 'search' : 'popular'}?query=${query}&per_page=20&page=${page}&KEY=${getKey()}`;
 
 export const VideosPanel = observer(({ store }: { store: StoreType }) => {
   const { setQuery, loadMore, isReachingEnd, data, isLoading, error } = useInfiniteAPI({

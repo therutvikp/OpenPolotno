@@ -127,8 +127,16 @@ export const VideosGrid = ({ items, onSelect, loadMore, isLoading, error, getCre
   if (error) return React.createElement('div', null, error.message);
   if (!items || items.length === 0) return null;
 
-  const odd = items.filter((_: any, i: number) => i % 2 === 1);
-  const even = items.filter((_: any, i: number) => i % 2 === 0);
+  // Deduplicate by ID to avoid React key conflicts when loadMore appends overlapping API pages
+  const seen = new Set<any>();
+  const unique = items.filter((item: any) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+
+  const odd = unique.filter((_: any, i: number) => i % 2 === 1);
+  const even = unique.filter((_: any, i: number) => i % 2 === 0);
 
   return React.createElement(
     ScrollContainer,

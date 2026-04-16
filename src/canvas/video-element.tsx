@@ -306,12 +306,15 @@ export const VideoElement = observer(({ element, store }: Props) => {
   useLoader(videoStatus, (element as any).src, (element as any).id);
 
   if (videoEl) {
-    (videoEl as any).width = videoEl.videoWidth;
-    (videoEl as any).height = videoEl.videoHeight;
     (videoEl as any).playsInline = true;
   }
 
   const mediaEl = videoEl || placeholderCanvas;
+  // Native video dimensions — read from videoWidth/videoHeight to avoid
+  // mutating the element during the render phase (causes React 18 concurrent
+  // mode warning when multiple VideoElements render in parallel).
+  const nativeVideoW = videoEl ? (videoEl.videoWidth || 0) : 0;
+  const nativeVideoH = videoEl ? (videoEl.videoHeight || 0) : 0;
 
   // Set duration from video metadata
   React.useEffect(() => {
@@ -420,8 +423,8 @@ export const VideoElement = observer(({ element, store }: Props) => {
   let { cropX, cropY, cropWidth, cropHeight } = element as any;
   if (videoStatus !== 'loaded') { cropX = cropY = 0; cropWidth = cropHeight = 1; }
 
-  const nativeW = (mediaEl as any).width || 1;
-  const nativeH = (mediaEl as any).height || 1;
+  const nativeW = nativeVideoW || (mediaEl as any).width || 1;
+  const nativeH = nativeVideoH || (mediaEl as any).height || 1;
   const cropW = nativeW * cropWidth;
   const cropH = nativeH * cropHeight;
   const aspect = (element as any).width / (element as any).height;
@@ -563,15 +566,15 @@ export const VideoElement = observer(({ element, store }: Props) => {
     if (Math.round(e.target.y()) > 0) { e.target.y(0); e.target.scaleY(1); }
     const tw = e.target.width() * e.target.scaleX();
     const th = e.target.height() * e.target.scaleY();
-    const maxCropX = 1 - drawW / (mediaEl as any).width;
-    const maxCropY = 1 - drawH / (mediaEl as any).height;
+    const maxCropX = 1 - drawW / nativeW;
+    const maxCropY = 1 - drawH / nativeH;
     const newCropX = Math.min(maxCropX, Math.max(0, Math.round(-e.target.x()) / tw));
     const newCropY = Math.min(maxCropY, Math.max(0, Math.round(-e.target.y()) / th));
     const newCropW = Math.min(1, drawW / tw);
     const newCropH = Math.min(1, drawH / th);
     e.target.setAttrs({
-      x: -newCropX * (mediaEl as any).width,
-      y: -newCropY * (mediaEl as any).height,
+      x: -newCropX * nativeW,
+      y: -newCropY * nativeH,
       scaleX: 1, scaleY: 1,
     });
     (element as any).set({ cropX: newCropX, cropY: newCropY, cropWidth: newCropW, cropHeight: newCropH });

@@ -134,6 +134,27 @@ const customFilters: Record<string, (intensity: number) => (imageData: ImageData
   },
 };
 
+function parseHex(hex: string): [number, number, number] {
+  const c = hex.replace('#', '').padEnd(6, '0');
+  return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16), parseInt(c.slice(4, 6), 16)];
+}
+
+function makeDuotoneFilter(shadow: [number, number, number], highlight: [number, number, number], opacity: number) {
+  return (imageData: ImageData) => {
+    const d = imageData.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const lum = (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+      const dr = shadow[0] + lum * (highlight[0] - shadow[0]);
+      const dg = shadow[1] + lum * (highlight[1] - shadow[1]);
+      const db = shadow[2] + lum * (highlight[2] - shadow[2]);
+      d[i]     = Math.round(dr * opacity + d[i]     * (1 - opacity));
+      d[i + 1] = Math.round(dg * opacity + d[i + 1] * (1 - opacity));
+      d[i + 2] = Math.round(db * opacity + d[i + 2] * (1 - opacity));
+    }
+    return imageData;
+  };
+}
+
 export function applyFilter(node: Konva.Node, element: ShapeType): void {
   const filters: any[] = [];
   const attrs: Record<string, any> = { filters };
@@ -152,11 +173,21 @@ export function applyFilter(node: Konva.Node, element: ShapeType): void {
   }
   if ((element as any).sepiaEnabled) filters.push(Konva.Filters.Sepia);
   if ((element as any).grayscaleEnabled) filters.push(Konva.Filters.Grayscale);
+  if ((element as any).duotoneEnabled) {
+    const shadow    = parseHex((element as any).duotoneShadowColor    || '#000000');
+    const highlight = parseHex((element as any).duotoneHighlightColor || '#ffffff');
+    const opacity   = (element as any).duotoneOpacity ?? 1;
+    filters.push(makeDuotoneFilter(shadow, highlight, opacity));
+  }
 
   (element as any).filters.forEach((filterVal: any, key: string) => {
     const filterFn = customFilters[key];
     if (filterFn) filters.push(filterFn(filterVal.intensity));
   });
+
+  // Blend mode: CSS 'normal' maps to canvas 'source-over'
+  const blendMode = (element as any).blendMode || 'normal';
+  attrs.globalCompositeOperation = blendMode === 'normal' ? 'source-over' : blendMode;
 
   node.setAttrs(attrs);
 

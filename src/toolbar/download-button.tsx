@@ -73,6 +73,20 @@ export const DownloadButton = observer(({ store }: { store: any }) => {
         }),
         flags.animationsEnabled && React.createElement(MenuItem, {
           icon: React.createElement(Video, null),
+          text: 'Save as GIF',
+          onClick: async () => {
+            setLoading(true);
+            try {
+              await store.saveAsGIF({ fileName: getFileName(store) + '.gif' });
+            } catch (e) {
+              console.error('GIF export failed:', e);
+              alert('Failed to export GIF. Please try again.');
+            }
+            setLoading(false);
+          },
+        }),
+        flags.animationsEnabled && React.createElement(MenuItem, {
+          icon: React.createElement(Video, null),
           text: 'Save as Video',
           onClick: async () => {
             setLoading(true);
@@ -94,7 +108,8 @@ export const DownloadButton = observer(({ store }: { store: any }) => {
       text: t('toolbar.download'),
       minimal: true,
       loading,
-    }),
+      'data-tour': 'download',
+    } as any),
   );
 });
 

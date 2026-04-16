@@ -53,49 +53,24 @@ const BounceIcon = () => React.createElement('svg', { width: '28', height: '28',
   React.createElement('path', { d: 'M14 3.5C18.6944 3.5 22.5 7.30558 22.5 12C22.5 16.6944 18.6944 20.5 14 20.5C9.30558 20.5 5.5 16.6944 5.5 12C5.5 7.30558 9.30558 3.5 14 3.5ZM14 5.25C10.2721 5.25 7.25 8.27208 7.25 12C7.25 15.7279 10.2721 18.75 14 18.75C17.7279 18.75 20.75 15.7279 20.75 12C20.75 8.27208 17.7279 5.25 14 5.25ZM14 7C16.7614 7 19 9.23858 19 12C19 14.7614 16.7614 17 14 17C11.2386 17 9 14.7614 9 12C9 9.23858 11.2386 7 14 7ZM14 8.75C12.2051 8.75 10.75 10.2051 10.75 12C10.75 13.7949 12.2051 15.25 14 15.25C15.7949 15.25 17.25 13.7949 17.25 12C17.25 10.2051 15.7949 8.75 14 8.75ZM14 10.5C14.8284 10.5 15.5 11.1716 15.5 12C15.5 12.8284 14.8284 13.5 14 13.5C13.1716 13.5 12.5 12.8284 12.5 12C12.5 11.1716 13.1716 10.5 14 10.5Z', fill: 'currentColor' })
 );
 
-// AnimationTypeSelector — enter/both/exit tabs
-const AnimationTypeSelector = observer(({ element, store, enabled }: any) => {
-  const enterAnim = element.animations.find((a: any) => a.type === 'enter');
-  const exitAnim = element.animations.find((a: any) => a.type === 'exit');
-  if (!enabled) return null;
+// Per-animation Enter/Both/Exit toggle — each animation (move/fade/zoom) has its own.
+const PerAnimEnterExitToggle = observer(({ element, store, name }: any) => {
+  const enterEnabled = !!(element.animations as any[]).find((a: any) => a.name === name && a.type === 'enter' && a.enabled);
+  const exitEnabled = !!(element.animations as any[]).find((a: any) => a.name === name && a.type === 'exit' && a.enabled);
+
+  const setMode = (mode: 'enter' | 'both' | 'exit') => {
+    store.history.transaction(() => {
+      element.setAnimation('enter', { name, enabled: mode !== 'exit' });
+      element.setAnimation('exit', { name, enabled: mode !== 'enter' });
+    });
+  };
+
   return React.createElement(
     'div',
-    null,
-    React.createElement('div', { style: { padding: '10px 0px' } }, 'Animate'),
-    React.createElement(
-      'div',
-      { style: { display: 'flex', gap: 10 } },
-      React.createElement(Button, {
-        fill: true,
-        active: enterAnim?.enabled && !exitAnim?.enabled,
-        onClick: () => {
-          store.history.transaction(() => {
-            element.setAnimation('enter', { enabled: true });
-            element.setAnimation('exit', { enabled: false });
-          });
-        },
-      }, 'Enter'),
-      React.createElement(Button, {
-        fill: true,
-        active: enterAnim?.enabled && exitAnim?.enabled,
-        onClick: () => {
-          store.history.transaction(() => {
-            element.setAnimation('enter', { enabled: true });
-            element.setAnimation('exit', { enabled: true });
-          });
-        },
-      }, 'Both'),
-      React.createElement(Button, {
-        fill: true,
-        active: exitAnim?.enabled && !enterAnim?.enabled,
-        onClick: () => {
-          store.history.transaction(() => {
-            element.setAnimation('enter', { enabled: false });
-            element.setAnimation('exit', { enabled: true });
-          });
-        },
-      }, 'Exit')
-    )
+    { style: { display: 'flex', gap: 8, paddingTop: '8px', paddingBottom: '4px' } },
+    React.createElement(Button, { fill: true, small: true, active: enterEnabled && !exitEnabled, onClick: () => setMode('enter') }, 'Enter'),
+    React.createElement(Button, { fill: true, small: true, active: enterEnabled && exitEnabled, onClick: () => setMode('both') }, 'Both'),
+    React.createElement(Button, { fill: true, small: true, active: exitEnabled && !enterEnabled, onClick: () => setMode('exit') }, 'Exit'),
   );
 });
 
@@ -153,9 +128,13 @@ const ZoomDirectionPicker = observer(({ value, onChange }: any) =>
 );
 
 const DelayPicker = observer(({ element, store }: any) => {
-  const enterAnim = element.animations.find((a: any) => a.type === 'enter');
+  const enterAnims = (element.animations as any[]).filter((a) => a.type === 'enter' && a.enabled);
+  const enterAnim = enterAnims[0];
   if (!enterAnim) return null;
   const pageDuration = element.page.duration;
+  const setDelay = (v: number) => {
+    enterAnims.forEach((a: any) => element.setAnimation('enter', { name: a.name, delay: v }));
+  };
   return React.createElement(
     'div',
     { style: { padding: '10px' } },
@@ -165,18 +144,23 @@ const DelayPicker = observer(({ element, store }: any) => {
       React.createElement('div', null, 'Delay'),
       React.createElement('div', null, React.createElement(NumberInput, {
         value: parseFloat((enterAnim.delay / 1000).toFixed(2)),
-        onValueChange: (v: number) => { element.setAnimation('enter', { delay: 1000 * v }); },
+        onValueChange: (v: number) => setDelay(1000 * v),
         style: { width: '50px' }, minorStepSize: 0.01, stepSize: 0.01, min: 0, max: pageDuration / 1000, buttonPosition: 'none',
       }))
     ),
-    React.createElement(Slider, { min: 0, max: pageDuration, value: enterAnim.delay, showTrackFill: false, labelRenderer: false, onChange: (v: number) => { element.setAnimation('enter', { delay: v }); } })
+    React.createElement(Slider, { min: 0, max: pageDuration, value: enterAnim.delay, showTrackFill: false, labelRenderer: false, onChange: (v: number) => setDelay(v) })
   );
 });
 
 const SpeedPicker = observer(({ element, store }: any) => {
-  const loopAnim = element.animations.find((a: any) => a.type === 'loop' && a.enabled);
+  const loopAnims = (element.animations as any[]).filter((a) => a.type === 'loop' && a.enabled);
+  const loopAnim = loopAnims[0];
   if (!loopAnim) return null;
   const speed = 500 / loopAnim.duration;
+  const setSpeed = (v: number) => {
+    const clamped = Math.min(Math.max(0.1, v), 3);
+    loopAnims.forEach((a: any) => element.setAnimation('loop', { name: a.name, duration: 500 / clamped }));
+  };
   return React.createElement(
     'div',
     { style: { padding: '10px' } },
@@ -186,16 +170,13 @@ const SpeedPicker = observer(({ element, store }: any) => {
       React.createElement('div', null, 'Speed'),
       React.createElement('div', null, React.createElement(NumberInput, {
         value: speed,
-        onValueChange: (v: number) => {
-          const clamped = Math.min(Math.max(0.1, v), 3);
-          element.setAnimation('loop', { duration: 500 / clamped });
-        },
+        onValueChange: (v: number) => setSpeed(v),
         style: { width: '50px' }, minorStepSize: 0.01, stepSize: 0.01, min: 0.1, max: 3, buttonPosition: 'none',
       }))
     ),
     React.createElement(Slider, {
       min: 0.1, max: 3, stepSize: 0.01, value: speed, showTrackFill: false, labelRenderer: false,
-      onChange: (v: number) => { element.setAnimation('loop', { duration: 500 / v }); },
+      onChange: (v: number) => setSpeed(v),
       onRelease: () => {
         const page = store.activePage;
         store.play({ animatedElementsIds: [element.id], currentTime: element.page.startTime });
@@ -206,9 +187,15 @@ const SpeedPicker = observer(({ element, store }: any) => {
 });
 
 const DurationPicker = observer(({ element, store }: any) => {
-  const enterAnim = element.animations.find((a: any) => a.type === 'enter');
+  const enterAnims = (element.animations as any[]).filter((a) => a.type === 'enter' && a.enabled);
+  const exitAnims = (element.animations as any[]).filter((a) => a.type === 'exit' && a.enabled);
+  const enterAnim = enterAnims[0];
   if (!enterAnim) return null;
   const pageDuration = element.page.duration;
+  const setDuration = (v: number) => {
+    enterAnims.forEach((a: any) => element.setAnimation('enter', { name: a.name, duration: v }));
+    exitAnims.forEach((a: any) => element.setAnimation('exit', { name: a.name, duration: v }));
+  };
   return React.createElement(
     'div',
     { style: { padding: '10px' } },
@@ -218,13 +205,13 @@ const DurationPicker = observer(({ element, store }: any) => {
       React.createElement('div', null, 'Duration'),
       React.createElement('div', null, React.createElement(NumberInput, {
         value: parseFloat((enterAnim.duration / 1000).toFixed(2)),
-        onValueChange: (v: number) => { element.setAnimation('enter', { duration: 1000 * v }); element.setAnimation('exit', { duration: 1000 * v }); },
+        onValueChange: (v: number) => setDuration(1000 * v),
         style: { width: '50px' }, minorStepSize: 0.01, stepSize: 0.01, min: 0, max: pageDuration / 1000, buttonPosition: 'none',
       }))
     ),
     React.createElement(Slider, {
       min: 0, max: pageDuration, value: enterAnim.duration, showTrackFill: false, labelRenderer: false,
-      onChange: (v: number) => { element.setAnimation('enter', { duration: v }); element.setAnimation('exit', { duration: v }); },
+      onChange: (v: number) => setDuration(v),
     })
   );
 });
@@ -255,7 +242,7 @@ const StrengthPicker = observer(({ element, store, animationName }: any) => {
       element.animations.forEach((a: any) => {
         if (a.name === animationName) {
           const data = a.data || {};
-          element.setAnimation(a.type, { data: Object.assign(Object.assign({}, data), { strength: val }) });
+          element.setAnimation(a.type, { name: a.name, data: Object.assign(Object.assign({}, data), { strength: val }) });
         }
       });
     });
@@ -282,9 +269,13 @@ const StrengthPicker = observer(({ element, store, animationName }: any) => {
 });
 
 const EndDelayPicker = observer(({ element, store }: any) => {
-  const exitAnim = element.animations.find((a: any) => a.type === 'exit');
+  const exitAnims = (element.animations as any[]).filter((a) => a.type === 'exit' && a.enabled);
+  const exitAnim = exitAnims[0];
   if (!exitAnim) return null;
   const pageDuration = element.page.duration;
+  const setDelay = (v: number) => {
+    exitAnims.forEach((a: any) => element.setAnimation('exit', { name: a.name, delay: v }));
+  };
   return React.createElement(
     'div',
     { style: { padding: '10px' } },
@@ -294,11 +285,11 @@ const EndDelayPicker = observer(({ element, store }: any) => {
       React.createElement('div', null, 'End Delay'),
       React.createElement('div', null, React.createElement(NumberInput, {
         value: parseFloat((exitAnim.delay / 1000).toFixed(2)),
-        onValueChange: (v: number) => { element.setAnimation('exit', { delay: 1000 * v }); },
+        onValueChange: (v: number) => setDelay(1000 * v),
         style: { width: '50px' }, minorStepSize: 0.01, stepSize: 0.01, min: 0, max: pageDuration / 1000, buttonPosition: 'none',
       }))
     ),
-    React.createElement(Slider, { min: 0, max: pageDuration, value: exitAnim.delay, showTrackFill: false, labelRenderer: false, onChange: (v: number) => { element.setAnimation('exit', { delay: v }); } })
+    React.createElement(Slider, { min: 0, max: pageDuration, value: exitAnim.delay, showTrackFill: false, labelRenderer: false, onChange: (v: number) => setDelay(v) })
   );
 });
 
@@ -317,11 +308,12 @@ export const AnimationsPanel = observer(({ store }: { store: StoreType }) => {
 
   if (!el || !el.animations) return null;
 
+  // Toggle enter+exit on or off — used by the Move/Fade/Zoom buttons.
   const setEnterExit = (name: string, attrs: any) => {
     store.history.transaction(() => {
       elements.forEach((e) => {
         e.setAnimation('enter', Object.assign({ name }, attrs));
-        e.setAnimation('exit', Object.assign(Object.assign({ name }, attrs), { from: attrs.to, to: attrs.from }));
+        e.setAnimation('exit', Object.assign({ name }, attrs));
       });
     });
     if (attrs.enabled) {
@@ -329,6 +321,17 @@ export const AnimationsPanel = observer(({ store }: { store: StoreType }) => {
       store.play({ animatedElementsIds: elements.map((e) => e.id), currentTime: el.page.startTime });
       setTimeout(() => { store.stop(); store.selectPage(page?.id); }, 1000);
     }
+  };
+
+  // Update animation data (direction, etc.) without changing enabled state.
+  const updateAnimData = (name: string, newData: Record<string, any>) => {
+    store.history.transaction(() => {
+      elements.forEach((e: any) => {
+        (e.animations as any[]).filter((a: any) => a.name === name).forEach((a: any) => {
+          e.setAnimation(a.type, { name, data: Object.assign({}, a.data || {}, newData) });
+        });
+      });
+    });
   };
 
   const setLoop = (name: string, attrs: any) => {
@@ -378,6 +381,7 @@ export const AnimationsPanel = observer(({ store }: { store: StoreType }) => {
     React.createElement(
       'div',
       { style: { paddingTop: '25px' } },
+      // Animation type buttons
       React.createElement(
         'div',
         { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '5px', paddingBottom: '10px' } },
@@ -385,18 +389,37 @@ export const AnimationsPanel = observer(({ store }: { store: StoreType }) => {
         React.createElement('div', null, React.createElement(Button, { outlined: true, large: true, style: { padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }, icon: React.createElement(FadeIcon, null), fill: true, active: isEnabled('fade'), onClick: () => { setEnterExit('fade', { enabled: !isEnabled('fade') }); } }, s('toolbar.fade'))),
         React.createElement('div', null, React.createElement(Button, { outlined: true, large: true, style: { padding: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }, icon: React.createElement(ZoomIcon, null), fill: true, active: isEnabled('zoom'), onClick: () => { setEnterExit('zoom', { enabled: !isEnabled('zoom') }); } }, s('toolbar.zoom')))
       ),
-      React.createElement(
+      // Per-animation settings — each animation has its own Enter/Both/Exit toggle
+      isEnabled('move') && React.createElement(
         SectionContainer,
-        { style: { display: hasEnterExit ? 'block' : 'none' } },
-        React.createElement(AnimationTypeSelector, { element: el, store, enabled: isEnabled('enter') || isEnabled('exit') }),
-        isEnabled('move') && React.createElement(DirectionPicker, { value: moveAnim?.data?.direction || 'right', onChange: (d: string) => { setEnterExit('move', { data: { direction: d }, enabled: true }); } }),
-        isEnabled('move') && React.createElement(StrengthPicker, { store, element: firstEl, animationName: 'move' }),
-        isEnabled('zoom') && React.createElement(ZoomDirectionPicker, { value: zoomAnim?.data?.direction || 'in', onChange: (d: string) => { setEnterExit('zoom', { data: { direction: d }, enabled: true }); } }),
-        isEnabled('zoom') && React.createElement(StrengthPicker, { store, element: firstEl, animationName: 'zoom' }),
+        { style: { marginBottom: '6px' } },
+        React.createElement('div', { style: { paddingTop: '6px', paddingBottom: '2px', fontWeight: 500 } }, 'Move'),
+        React.createElement(PerAnimEnterExitToggle, { element: el, store, name: 'move' }),
+        React.createElement(DirectionPicker, { value: moveAnim?.data?.direction || 'right', onChange: (d: string) => { updateAnimData('move', { direction: d }); } }),
+        React.createElement(StrengthPicker, { store, element: firstEl, animationName: 'move' }),
+      ),
+      isEnabled('fade') && React.createElement(
+        SectionContainer,
+        { style: { marginBottom: '6px' } },
+        React.createElement('div', { style: { paddingTop: '6px', paddingBottom: '2px', fontWeight: 500 } }, 'Fade'),
+        React.createElement(PerAnimEnterExitToggle, { element: el, store, name: 'fade' }),
+      ),
+      isEnabled('zoom') && React.createElement(
+        SectionContainer,
+        { style: { marginBottom: '6px' } },
+        React.createElement('div', { style: { paddingTop: '6px', paddingBottom: '2px', fontWeight: 500 } }, 'Zoom'),
+        React.createElement(PerAnimEnterExitToggle, { element: el, store, name: 'zoom' }),
+        React.createElement(ZoomDirectionPicker, { value: zoomAnim?.data?.direction || 'in', onChange: (d: string) => { updateAnimData('zoom', { direction: d }); } }),
+        React.createElement(StrengthPicker, { store, element: firstEl, animationName: 'zoom' }),
+      ),
+      // Shared timing controls
+      hasEnterExit && React.createElement(
+        SectionContainer,
+        null,
         isEnabled('enter') && React.createElement(DelayPicker, { store, element: firstEl }),
         isEnabled('enter') && React.createElement(DurationPicker, { store, element: firstEl }),
-        isEnabled('exit') && React.createElement(EndDelayPicker, { store, element: firstEl })
-      )
+        isEnabled('exit') && React.createElement(EndDelayPicker, { store, element: firstEl }),
+      ),
     ),
     // Effects section
     React.createElement(

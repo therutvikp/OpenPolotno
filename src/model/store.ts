@@ -746,14 +746,22 @@ export const Store = types
       return (await (self as any)._toPDF({ mimeType: 'image/jpeg', ...options })).output('datauristring');
     },
 
-    async toGIFDataURL({ pixelRatio = 1, fps = 10 } = {}): Promise<string> {
+    async toGIFDataURL({ pixelRatio = 1, fps = 60 } = {}): Promise<string> {
       const gif = await createGIF({ width: self.width * pixelRatio, height: self.height * pixelRatio });
       const frameDelay = 1000 / fps;
-      const frameCount = (self as any).duration / frameDelay;
+      const frameCount = Math.ceil((self as any).duration / frameDelay);
 
-      for (let i = 0; i < frameCount - 1; i++) {
-        const time = i * frameDelay || 1;
+      for (let i = 0; i < frameCount; i++) {
+        const time = i * frameDelay;
         (self as any).setCurrentTime(time);
+
+        // Wait two animation frames: first for React/MobX to re-render observer
+        // components with the new currentTime, second for Konva to flush its draw
+        // calls and paint the updated state onto the canvas layers.
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+
         let elapsed = 0;
         let activePageId = '';
         for (const page of self.pages) {

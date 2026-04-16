@@ -5,7 +5,5 @@
 import { glob } from './goober';
 
 glob`
-  .bp5-popover {
-    overflow: visible !important;
-  }
+  
 `;

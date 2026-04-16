@@ -737,10 +737,10 @@ const Page = observer(({
                 ),
               ),
             ),
-            // Rendering overlay
+            // Rendering overlay — hideInExport keeps it out of _toCanvas captures
             (page as any)._rendering && React.createElement(
               Group,
-              null,
+              { hideInExport: true },
               React.createElement(Rect, { width: pageW, height: pageH, fill: 'rgba(255,255,255,0.9)' }),
               React.createElement(Text, { text: 'Rendering...', fontSize: 60, width: pageW, height: pageH, align: 'center', verticalAlign: 'middle' }),
             ),

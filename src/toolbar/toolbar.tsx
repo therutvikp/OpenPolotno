@@ -139,7 +139,7 @@ export const Toolbar = observer(({ store, downloadButtonEnabled, components: com
 
   return React.createElement(
     ToolbarContainer,
-    { ref: containerRef, className: `bp5-navbar raeditor-toolbar${condensed ? ' condensed' : ''}` },
+    { ref: containerRef, className: `bp5-navbar raeditor-toolbar${condensed ? ' condensed' : ''}`, 'data-tour': 'toolbar' },
     React.createElement(
       ToolbarInner,
       null,
@@ -147,7 +147,7 @@ export const Toolbar = observer(({ store, downloadButtonEnabled, components: com
       ActiveToolbar && allStyleEditable && React.createElement(ActiveToolbar, { store, components }),
       !isCropMode && React.createElement(
         Navbar.Group,
-        { align: Alignment.RIGHT },
+        { align: Alignment.END },
         store.role === 'admin' && React.createElement(Admin, { store }),
         React.createElement(PresentationButton, { store }),
         React.createElement(ShortcutsButton, { store }),

@@ -22,6 +22,19 @@ export const NumberInput = ({ value, onValueChange, ...rest }: any) => {
   });
 };
 
+const AdjustmentRow = ({ label, value, onChange, min, max }: any) =>
+  React.createElement(
+    'div',
+    { style: { marginBottom: '10px' } },
+    React.createElement(
+      'div',
+      { style: { display: 'flex', justifyContent: 'space-between', marginBottom: '2px' } },
+      React.createElement('span', { style: { fontSize: '12px', lineHeight: '24px' } }, label),
+      React.createElement(NumberInput, { value, onValueChange: (v: number) => onChange(clamp(v, min, max)), style: { width: '50px' }, min, max, buttonPosition: 'none' }),
+    ),
+    React.createElement(Slider, { value, onChange, min, max, labelStepSize: max - min, showTrackFill: true, labelRenderer: (v: number) => (v === min || v === max || v === 0) ? String(v) : false }),
+  );
+
 const EffectRow = ({ label, enabled, visible = true, onEnabledChange, numberValue, onNumberValueChange, min, max }: any) => {
   if (!visible) return null;
   return React.createElement(
@@ -80,6 +93,22 @@ export const EffectsPanel = observer(({ store }: { store: StoreType }) => {
 
   const getFilterIntensity = (name: string) => el.filters.get(name)?.intensity ?? 0;
 
+  const setAdjust = (name: string, val: number) => {
+    store.history.transaction(() => {
+      elements.forEach((e: any) => {
+        if (name === 'brightness') {
+          e.set({ brightnessEnabled: true, brightness: val / 100 });
+        } else {
+          e.setFilter(name, val !== 0 ? val / 100 : null);
+        }
+      });
+    });
+  };
+
+  const brightnessVal = Math.round(100 * el.brightness);
+  const contrastVal   = Math.round(100 * getFilterIntensity('contrast'));
+  const saturationVal = Math.round(100 * getFilterIntensity('saturation'));
+
   return React.createElement(
     'div',
     { style: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'auto', padding: '0 10px' } },
@@ -102,15 +131,49 @@ export const EffectsPanel = observer(({ store }: { store: StoreType }) => {
         React.createElement(EffectCard, { active: el.filters.has('warm'), onClick: () => { setFilter('warm', el.filters.has('warm') ? null : 1); }, title: s('toolbar.warm'), imageSrc: el.src, effect: Effects.warm })
       )
     ),
+    isImageOrSvg && React.createElement(
+      'div',
+      { style: { marginTop: '16px' } },
+      React.createElement('div', { style: { fontSize: '11px', fontWeight: 600, opacity: 0.5, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '10px' } }, 'Adjustments'),
+      React.createElement(AdjustmentRow, { label: 'Brightness', value: brightnessVal, onChange: (v: number) => setAdjust('brightness', v), min: -100, max: 100 }),
+      React.createElement(AdjustmentRow, { label: 'Contrast',   value: contrastVal,   onChange: (v: number) => setAdjust('contrast', v),   min: -100, max: 100 }),
+      React.createElement(AdjustmentRow, { label: 'Saturation', value: saturationVal, onChange: (v: number) => setAdjust('saturation', v), min: -100, max: 100 }),
+    ),
+    isImageOrSvg && React.createElement(
+      'div',
+      { style: { marginTop: '16px' } },
+      React.createElement('div', { style: { fontSize: '11px', fontWeight: 600, opacity: 0.5, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '6px' } }, 'Duotone'),
+      React.createElement(Switch, {
+        checked: el.duotoneEnabled,
+        label: 'Enable Duotone',
+        onChange: (e: any) => setAttrs({ duotoneEnabled: e.target.checked }),
+        alignIndicator: Alignment.RIGHT,
+        style: { marginBottom: '8px' },
+      }),
+      el.duotoneEnabled && React.createElement(
+        React.Fragment,
+        null,
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+          React.createElement('span', { style: { fontSize: '12px' } }, 'Shadows'),
+          React.createElement(ColorPicker, { value: el.duotoneShadowColor, size: 28, onChange: (c: string) => setAttrs({ duotoneShadowColor: c }), store }),
+        ),
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' } },
+          React.createElement('span', { style: { fontSize: '12px' } }, 'Highlights'),
+          React.createElement(ColorPicker, { value: el.duotoneHighlightColor, size: 28, onChange: (c: string) => setAttrs({ duotoneHighlightColor: c }), store }),
+        ),
+        React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' } },
+          React.createElement('span', { style: { fontSize: '12px', lineHeight: '24px' } }, 'Opacity'),
+          React.createElement(NumberInput, { value: Math.round(100 * el.duotoneOpacity), onValueChange: (v: number) => setAttrs({ duotoneOpacity: clamp(v, 0, 100) / 100 }), style: { width: '50px' }, min: 0, max: 100, buttonPosition: 'none' }),
+        ),
+        React.createElement(Slider, { value: Math.round(100 * el.duotoneOpacity), onChange: (v: number) => setAttrs({ duotoneOpacity: v / 100 }), min: 0, max: 100, labelRenderer: false }),
+      ),
+    ),
     React.createElement(EffectRow, { label: s('toolbar.blur'), enabled: el.blurEnabled, visible: isImageOrSvg || isText, onEnabledChange: (v: boolean) => { setAttrs({ blurEnabled: v }); }, numberValue: el.blurRadius, onNumberValueChange: (v: number) => { setAttrs({ blurRadius: v }); }, min: 0, max: 100 }),
-    React.createElement(EffectRow, { label: s('toolbar.brightness'), visible: isImageOrSvg, enabled: el.brightnessEnabled, onEnabledChange: (v: boolean) => { setAttrs({ brightnessEnabled: v }); }, numberValue: Math.round(100 * el.brightness), onNumberValueChange: (v: number) => { setAttrs({ brightness: v / 100 }); }, min: -100, max: 100 }),
     React.createElement(EffectRow, { label: s('toolbar.temperature'), visible: isImageOrSvg, enabled: el.filters.has('temperature'), onEnabledChange: (v: boolean) => { setFilter('temperature', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('temperature')), onNumberValueChange: (v: number) => { setFilter('temperature', v / 100); }, min: -100, max: 100 }),
-    React.createElement(EffectRow, { label: s('toolbar.contrast'), visible: isImageOrSvg, enabled: el.filters.has('contrast'), onEnabledChange: (v: boolean) => { setFilter('contrast', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('contrast')), onNumberValueChange: (v: number) => { setFilter('contrast', v / 100); }, min: -100, max: 100 }),
     React.createElement(EffectRow, { label: s('toolbar.shadows'), visible: isImageOrSvg, enabled: el.filters.has('shadows'), onEnabledChange: (v: boolean) => { setFilter('shadows', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('shadows')), onNumberValueChange: (v: number) => { setFilter('shadows', v / 100); }, min: -100, max: 100 }),
     React.createElement(EffectRow, { label: s('toolbar.white'), visible: isImageOrSvg, enabled: el.filters.has('white'), onEnabledChange: (v: boolean) => { setFilter('white', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('white')), onNumberValueChange: (v: number) => { setFilter('white', v / 100); }, min: -100, max: 100 }),
     React.createElement(EffectRow, { label: s('toolbar.black'), visible: isImageOrSvg, enabled: el.filters.has('black'), onEnabledChange: (v: boolean) => { setFilter('black', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('black')), onNumberValueChange: (v: number) => { setFilter('black', v / 100); }, min: -100, max: 100 }),
     React.createElement(EffectRow, { label: s('toolbar.vibrance'), visible: isImageOrSvg, enabled: el.filters.has('vibrance'), onEnabledChange: (v: boolean) => { setFilter('vibrance', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('vibrance')), onNumberValueChange: (v: number) => { setFilter('vibrance', v / 100); }, min: -100, max: 100 }),
-    React.createElement(EffectRow, { label: s('toolbar.saturation'), visible: isImageOrSvg, enabled: el.filters.has('saturation'), onEnabledChange: (v: boolean) => { setFilter('saturation', v ? 0 : null); }, numberValue: Math.round(100 * getFilterIntensity('saturation')), onNumberValueChange: (v: number) => { setFilter('saturation', v / 100); }, min: -100, max: 100 }),
     // Curved text
     isText && React.createElement(Switch, { checked: !!el.curveEnabled, label: s('toolbar.curvedText') || 'Curved text', onChange: (e: any) => { setAttrs({ curveEnabled: e.target.checked }); }, alignIndicator: Alignment.RIGHT, style: { marginTop: '20px' } }),
     isText && el.curveEnabled && React.createElement(

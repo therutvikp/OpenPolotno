@@ -52,6 +52,8 @@ export const Shape = Node.named('Shape')
     rotation: types.optional(types.number, 0),
     opacity: types.optional(types.number, 1),
     animations: types.array(Animation),
+    startOffset: types.optional(types.number, 0),
+    endOffset: types.optional(types.number, -1),
     blurEnabled: types.optional(types.boolean, false),
     blurRadius: types.optional(types.number, 10),
     brightnessEnabled: types.optional(types.boolean, false),
@@ -59,6 +61,11 @@ export const Shape = Node.named('Shape')
     sepiaEnabled: types.optional(types.boolean, false),
     grayscaleEnabled: types.optional(types.boolean, false),
     filters: types.map(ShapeFilter),
+    blendMode: types.optional(types.string, 'normal'),
+    duotoneEnabled: types.optional(types.boolean, false),
+    duotoneShadowColor: types.optional(types.string, '#1a0533'),
+    duotoneHighlightColor: types.optional(types.string, '#e8b86d'),
+    duotoneOpacity: types.optional(types.number, 1),
     shadowEnabled: types.optional(types.boolean, false),
     shadowBlur: types.optional(types.number, 5),
     shadowOffsetX: types.optional(types.number, 0),
@@ -147,43 +154,66 @@ export const Shape = Node.named('Shape')
         const animatedIds = (self as any).store.animatedElementsIds;
         if (animatedIds.length && !animatedIds.includes(self.id)) return animatedValues;
 
-        // Enter animation
-        const enterAnim = self.animations.find((a) => a.type === 'enter');
-        const beforeEnter = enterAnim?.enabled && elapsed < enterAnim.delay;
-        if (beforeEnter) setValues({ opacity: 0 });
-
-        const duringEnter =
-          enterAnim?.enabled &&
-          elapsed >= enterAnim.delay &&
-          elapsed <= enterAnim.delay + enterAnim.duration;
-        if (duringEnter) {
-          const dTime = elapsed - enterAnim!.delay;
-          const result = animate({ element: self as any, animation: enterAnim!, dTime });
-          applyDelta(getDiff(self as any, result));
-        }
-
-        // Exit animation
-        const exitAnim = self.animations.find((a) => a.type === 'exit');
-        if (
-          !beforeEnter &&
-          !duringEnter &&
-          exitAnim?.enabled &&
-          elapsed >= pageDuration - exitAnim.duration - exitAnim.delay &&
-          elapsed <= pageDuration - exitAnim.delay
-        ) {
-          const dTime = elapsed - (pageDuration - exitAnim.duration - exitAnim.delay);
-          const result = animate({ element: self as any, animation: exitAnim!, dTime });
-          applyDelta(getDiff(self as any, result));
-        }
-
-        if (exitAnim?.enabled && elapsed >= pageDuration - exitAnim.delay) {
+        // startOffset / endOffset visibility clamp
+        const effectiveStart = (self as any).startOffset || 0;
+        const rawEnd = (self as any).endOffset;
+        const effectiveEnd = rawEnd == null || rawEnd < 0 ? pageDuration : rawEnd;
+        if (elapsed < effectiveStart || elapsed > effectiveEnd) {
           setValues({ opacity: 0 });
+          return animatedValues;
         }
 
-        // Loop animation
-        const loopAnim = self.animations.find((a) => a.type === 'loop');
-        if (loopAnim?.enabled) {
-          const result = animate({ element: self as any, animation: loopAnim!, dTime: elapsed });
+        // Multiple enter animations — all enabled enter anims play simultaneously
+        const enterAnims = self.animations.filter((a) => a.type === 'enter' && a.enabled);
+        let inEnterPhase = false;
+        let hiddenByEnter = false;
+
+        if (enterAnims.length > 0) {
+          // Hide until ALL enter delays have passed (i.e., at least one has started)
+          const allBefore = enterAnims.every((a) => elapsed < a.delay);
+          if (allBefore) {
+            setValues({ opacity: 0 });
+            hiddenByEnter = true;
+          } else {
+            for (const enterAnim of enterAnims) {
+              if (elapsed >= enterAnim.delay && elapsed <= enterAnim.delay + enterAnim.duration) {
+                inEnterPhase = true;
+                const dTime = elapsed - enterAnim.delay;
+                const result = animate({ element: self as any, animation: enterAnim, dTime });
+                applyDelta(getDiff(self as any, result));
+              }
+            }
+          }
+        }
+
+        // Multiple exit animations
+        if (!hiddenByEnter) {
+          const exitAnims = self.animations.filter((a) => a.type === 'exit' && a.enabled);
+          if (exitAnims.length > 0) {
+            // Hide once ALL exit delays have passed
+            const allAfter = exitAnims.every((a) => elapsed >= pageDuration - a.delay);
+            if (allAfter) {
+              setValues({ opacity: 0 });
+            } else {
+              for (const exitAnim of exitAnims) {
+                if (
+                  !inEnterPhase &&
+                  elapsed >= pageDuration - exitAnim.duration - exitAnim.delay &&
+                  elapsed <= pageDuration - exitAnim.delay
+                ) {
+                  const dTime = elapsed - (pageDuration - exitAnim.duration - exitAnim.delay);
+                  const result = animate({ element: self as any, animation: exitAnim, dTime });
+                  applyDelta(getDiff(self as any, result));
+                }
+              }
+            }
+          }
+        }
+
+        // Multiple loop animations — all run concurrently
+        const loopAnims = self.animations.filter((a) => a.type === 'loop' && a.enabled);
+        for (const loopAnim of loopAnims) {
+          const result = animate({ element: self as any, animation: loopAnim, dTime: elapsed });
           applyDelta(getDiff(self as any, result));
         }
 
@@ -197,7 +227,12 @@ export const Shape = Node.named('Shape')
   })
   .actions((self) => ({
     setAnimation(type: 'enter' | 'exit' | 'loop', data: Partial<Instance<typeof Animation>>) {
-      const existing = self.animations.find((a) => a.type === type);
+      // Key by (type, name) so multiple named animations can coexist per type.
+      // Falls back to type-only lookup when no name is given.
+      const name = (data as any).name;
+      const existing = name
+        ? self.animations.find((a) => a.type === type && a.name === name)
+        : self.animations.find((a) => a.type === type);
       if (existing) {
         Object.assign(existing, data);
       } else {

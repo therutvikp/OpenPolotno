@@ -10,6 +10,7 @@ import styled from './utils/styled';
 import { mobileStyle } from './utils/screen';
 import { createStore } from './model/store';
 import { StoreType } from './model/store';
+import { OnboardingTour } from './onboarding-tour';
 
 export const RaeditorContainer = styled('div')`
   display: flex;
@@ -59,14 +60,15 @@ export const RaeditorApp = ({ store, style, sections }: { store: StoreType; styl
   return React.createElement(
     RaeditorContainer,
     { className: 'raeditor-app-container', style },
-    React.createElement(SidePanelWrap, null,
+    React.createElement(SidePanelWrap, { 'data-tour': 'side-panel' } as any,
       React.createElement(SidePanel, { store, sections: resolvedSections })
     ),
-    React.createElement(WorkspaceWrap, null,
+    React.createElement(WorkspaceWrap, { 'data-tour': 'canvas' } as any,
       React.createElement(Toolbar, { store, components: { ActionControls: () => React.createElement(DownloadButton, { store }) } }),
       React.createElement(Workspace, { store }),
       React.createElement(ZoomButtons, { store })
-    )
+    ),
+    React.createElement(OnboardingTour, null)
   );
 };
 

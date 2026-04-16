@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Button, Position, Switch, Slider, Alignment, NumericInput } from '@blueprintjs/core';
+import { Button, Position, Switch, Slider, Alignment, NumericInput, HTMLSelect } from '@blueprintjs/core';
 import { Popover } from '@blueprintjs/core';
 import { observer } from 'mobx-react-lite';
 import { LeftJoin } from '@blueprintjs/icons';
@@ -9,6 +9,70 @@ import ColorPicker from './color-picker';
 import { t } from '../utils/l10n';
 
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+
+const BLEND_MODE_GROUPS = [
+  {
+    label: 'Normal',
+    modes: [
+      { value: 'normal',           label: 'Normal' },
+    ],
+  },
+  {
+    label: 'Darken',
+    modes: [
+      { value: 'darken',           label: 'Darken' },
+      { value: 'multiply',         label: 'Multiply' },
+      { value: 'color-burn',       label: 'Color Burn' },
+    ],
+  },
+  {
+    label: 'Lighten',
+    modes: [
+      { value: 'lighten',          label: 'Lighten' },
+      { value: 'screen',           label: 'Screen' },
+      { value: 'color-dodge',      label: 'Color Dodge' },
+      { value: 'lighter',          label: 'Add (Linear Dodge)' },
+    ],
+  },
+  {
+    label: 'Contrast',
+    modes: [
+      { value: 'overlay',          label: 'Overlay' },
+      { value: 'soft-light',       label: 'Soft Light' },
+      { value: 'hard-light',       label: 'Hard Light' },
+    ],
+  },
+  {
+    label: 'Inversion',
+    modes: [
+      { value: 'difference',       label: 'Difference' },
+      { value: 'exclusion',        label: 'Exclusion' },
+      { value: 'xor',              label: 'XOR' },
+    ],
+  },
+  {
+    label: 'Component',
+    modes: [
+      { value: 'hue',              label: 'Hue' },
+      { value: 'saturation',       label: 'Saturation' },
+      { value: 'color',            label: 'Color' },
+      { value: 'luminosity',       label: 'Luminosity' },
+    ],
+  },
+  {
+    label: 'Compositing',
+    modes: [
+      { value: 'copy',             label: 'Copy (Source Only)' },
+      { value: 'destination-over', label: 'Destination Over' },
+      { value: 'source-in',        label: 'Source In' },
+      { value: 'source-out',       label: 'Source Out' },
+      { value: 'source-atop',      label: 'Source Atop' },
+      { value: 'destination-in',   label: 'Destination In' },
+      { value: 'destination-out',  label: 'Destination Out' },
+      { value: 'destination-atop', label: 'Destination Atop' },
+    ],
+  },
+];
 
 export const NumberInput = ({ value, onValueChange, ...rest }: any) => {
   const [local, setLocal] = React.useState(value.toString());
@@ -61,6 +125,28 @@ export const FiltersPicker = observer(({ element, store, elements }: any) => {
       content: React.createElement(
         'div',
         { style: { padding: '15px', paddingTop: '15px', width: '230px', maxHeight: 'calc(100vh - 150px)', overflow: 'auto' } },
+        isImgOrSvg && React.createElement(
+          'div',
+          { style: { marginTop: '10px' } },
+          React.createElement('div', { style: { paddingBottom: '6px', fontSize: '12px', opacity: 0.6 } }, 'Blend Mode'),
+          React.createElement(
+            HTMLSelect,
+            {
+              value: first.blendMode || 'normal',
+              onChange: (e: any) => setAll({ blendMode: e.target.value }),
+              style: { width: '100%' },
+            },
+            ...BLEND_MODE_GROUPS.map((group) =>
+              React.createElement(
+                'optgroup',
+                { label: group.label, key: group.label },
+                ...group.modes.map((m) =>
+                  React.createElement('option', { value: m.value, key: m.value }, m.label),
+                ),
+              ),
+            ),
+          ),
+        ),
         React.createElement(FilterRow, {
           label: t('toolbar.blur'), enabled: first.blurEnabled, visible: isImgOrSvg || isText,
           onEnabledChange: (v: boolean) => setAll({ blurEnabled: v }),

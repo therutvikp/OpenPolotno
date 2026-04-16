@@ -115,7 +115,6 @@ export const PositionPicker = observer(({ store }: { store: any }) => {
         ),
       ),
       position: Position.BOTTOM,
-      positioningStrategy: 'fixed',
     },
     React.createElement(Button, {
       icon: React.createElement(Layers, null),
